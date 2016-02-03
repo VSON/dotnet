@@ -13,7 +13,7 @@ namespace Vson.Model
 
 		internal VsonNumber(string value)
 		{
-			this.value = value.ToUpperInvariant();
+			this.value = value.Contains("e") ? value.ToUpperInvariant() : value;
 		}
 
 		public VsonNumber(double value)
@@ -24,7 +24,7 @@ namespace Vson.Model
 		public double? AsDouble()
 		{
 			double doubleValue;
-			if(!double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out doubleValue)) return null;
+			if(!double.TryParse(value, NumberStyles.Any, CultureInfo.InvariantCulture, out doubleValue)) return null;
 			if(doubleValue == 0 && value[0] == '-')
 				doubleValue = -0.0; // must be double literal or negative zero doesn't come through
 			return doubleValue;

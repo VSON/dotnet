@@ -45,6 +45,21 @@ namespace Vson.Tests.IO
 			Assert.AreEqual(VsonTokenType.Number, token.Type);
 			Assert.AreEqual(new VsonNumber("1E-06"), token.Value);
 
+			reader = new VsonTextReader("NaN");
+			token = reader.NextToken().Value;
+			Assert.AreEqual(VsonTokenType.Number, token.Type);
+			Assert.AreEqual(new VsonNumber("NaN"), token.Value);
+
+			reader = new VsonTextReader("Infinity");
+			token = reader.NextToken().Value;
+			Assert.AreEqual(VsonTokenType.Number, token.Type);
+			Assert.AreEqual(new VsonNumber("Infinity"), token.Value);
+
+			reader = new VsonTextReader("-Infinity");
+			token = reader.NextToken().Value;
+			Assert.AreEqual(VsonTokenType.Number, token.Type);
+			Assert.AreEqual(new VsonNumber("-Infinity"), token.Value);
+
 			reader = new VsonTextReader("9999999999999999999999999999999999999999999999999999999999999999999999999999asdasdasd");
 			Assert.Throws<VsonReaderException>(() => reader.NextToken());
 
