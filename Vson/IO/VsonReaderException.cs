@@ -6,37 +6,52 @@ namespace Vson.IO
 	[Serializable]
 	public class VsonReaderException : Exception
 	{
-		public VsonReaderException()
+		public TextPosition Position { get; }
+
+		public VsonReaderException(TextPosition position)
+			: base(BuildMessage(position, "Unknown VSON reader exception"))
 		{
+			Position = position;
 		}
 
-		public VsonReaderException(string message) : base(message)
+		public VsonReaderException(TextPosition position, string message)
+			: base(BuildMessage(position, message))
 		{
+			Position = position;
 		}
 
-		public VsonReaderException(string message, Exception innerException) : base(message, innerException)
+		public VsonReaderException(TextPosition position, string message, Exception innerException)
+			: base(BuildMessage(position, message), innerException)
 		{
+			Position = position;
 		}
 
-		protected VsonReaderException(SerializationInfo info, StreamingContext context) : base(info, context)
+		protected VsonReaderException(SerializationInfo info, StreamingContext context, TextPosition position)
+			: base(info, context)
 		{
+			Position = position;
+		}
+
+		private static string BuildMessage(TextPosition position, string message)
+		{
+			return $"{message} at char {position.Offset}, line {position.Line + 1}, column {position.Column}";
 		}
 
 		#region Factory Methods
-		internal static VsonReaderException UnexpectedEndOfFile()
+		internal static VsonReaderException UnexpectedEndOfFile(TextPosition position)
 		{
-			return new VsonReaderException("Unexpected end of file");
+			return new VsonReaderException(position, "Unexpected end of file");
 		}
 
-		internal static VsonReaderException UnexpectedCharacter(char character)
+		internal static VsonReaderException UnexpectedCharacter(TextPosition position, char character)
 		{
-			return new VsonReaderException($"Unexpected character '{character}' encountered");
+			return new VsonReaderException(position, $"Unexpected character '{character}' encountered");
+		}
+
+		internal static VsonReaderException InvalidToken(TextPosition position, string token)
+		{
+			return new VsonReaderException(position, $"Invalid token '{token}'");
 		}
 		#endregion
-
-		public static VsonReaderException InvalidNumber(string value)
-		{
-			return new VsonReaderException($"'{value}' is not a valid VSON number");
-		}
 	}
 }

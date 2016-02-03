@@ -1,6 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Globalization;
+﻿using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using Vson.Model;
@@ -9,14 +7,31 @@ namespace Vson.IO
 {
 	public class VsonTextReader : VsonReader
 	{
+		private const int EOF = -1;
+		private static readonly char[] ExponentCharacters = { 'e', 'E' };
+		private static readonly char[] DateTimeCharacters = { ':', 'T', 'Z', '+', '-' };
+
 		private static readonly VsonToken LineFeedToken = new VsonToken(VsonTokenType.NewLine, new VsonString("\n"));
 		private static readonly VsonToken CarriageReturnToken = new VsonToken(VsonTokenType.NewLine, new VsonString("\r"));
 		private static readonly VsonToken CarriageReturnLineFeedToken = new VsonToken(VsonTokenType.NewLine, new VsonString("\r"));
+		private static IDictionary<string, VsonToken> keywordTokens;
+
+		private static IDictionary<string, VsonToken> KeywordTokens => keywordTokens ?? (keywordTokens = new SortedDictionary<string, VsonToken>()
+		{
+			{"true", new VsonToken(VsonTokenType.Bool, VsonBool.True)},
+			{"false", new VsonToken(VsonTokenType.Bool, VsonBool.False)},
+			{"NaN", new VsonToken(VsonTokenType.Number, VsonNumber.NaN)},
+			{"Infinity", new VsonToken(VsonTokenType.Number, VsonNumber.PositiveInfinity)},
+			{"-Infinity", new VsonToken(VsonTokenType.Number, VsonNumber.NegativeInfinity)},
+			{"null", new VsonToken(VsonTokenType.Null, VsonNull.Value)},
+		});
 
 		private readonly TextReader reader;
 		private readonly bool readWhiteSpace;
 		private readonly Stack<VsonContainerType> containers = new Stack<VsonContainerType>();
 		private readonly StringBuilder buffer = new StringBuilder();
+		private TextPosition lastTokenPosition;
+		private TextPosition currentPosition;
 
 		public VsonTextReader(string value)
 			: this(new StringReader(value), false)
@@ -49,6 +64,9 @@ namespace Vson.IO
 			this.readWhiteSpace = readWhiteSpace;
 		}
 
+		public TextPosition LastTokenPosition => lastTokenPosition;
+		public TextPosition CurrentPosition => currentPosition;
+
 		private string Debuffer()
 		{
 			var value = buffer.ToString();
@@ -60,62 +78,251 @@ namespace Vson.IO
 		{
 			for(;;)
 			{
-				var next = reader.Read();
-				if(next == -1)
-					return LexEndOfFile();
+				lastTokenPosition = currentPosition;
 
-				var nextChar = (char)next;
-
-				switch(nextChar)
+				var next = reader.Peek();
+				switch(next)
 				{
+					case EOF:
+						reader.Read();
+						return null;
 					case ' ':
 					case '\t':
-						if(!readWhiteSpace) continue;
-						buffer.Append(nextChar);
-						return LexWhiteSpace();
+						if(readWhiteSpace)
+							return LexWhiteSpace();
+
+						SkipWhiteSpaceAndNewLine();
+						continue;
 					case '\n':
-						if(!readWhiteSpace) continue;
-						return LineFeedToken;
-					case '\r':
-						if(!readWhiteSpace) continue;
-						if(reader.Peek() == '\n')
+						if(readWhiteSpace)
 						{
 							reader.Read();
-							return CarriageReturnLineFeedToken;
+							currentPosition = currentPosition.NewLine();
+							return LineFeedToken;
 						}
-						return CarriageReturnToken;
+
+						SkipWhiteSpaceAndNewLine();
+						continue;
+					case '\r':
+						if(readWhiteSpace)
+						{
+							reader.Read();
+							next = reader.Peek();
+							if(next == '\n')
+							{
+								reader.Read();
+								currentPosition = currentPosition.NewLine(2);
+								return CarriageReturnLineFeedToken;
+							}
+							currentPosition = currentPosition.NewLine();
+							return CarriageReturnToken;
+						}
+
+						SkipWhiteSpaceAndNewLine();
+						continue;
 					case '/':
-						buffer.Append(nextChar);
 						var comment = LexComment();
 						if(readWhiteSpace)
 							return comment;
 
 						continue;
 					case '{':
+						reader.Read();
 						containers.Push(VsonContainerType.Object);
 						return new VsonToken(VsonTokenType.StartObject);
 					case '}':
+						reader.Read();
 						containers.Pop(); // TODO validate
 						return new VsonToken(VsonTokenType.EndObject);
 					case '[':
+						reader.Read();
 						containers.Push(VsonContainerType.Array);
 						return new VsonToken(VsonTokenType.StartArray);
 					case ']':
+						reader.Read();
 						containers.Pop(); // TODO validate
 						return new VsonToken(VsonTokenType.EndArray);
-					case 't':
-						return LexTrue();
-					case 'f':
-						return LexFalse();
-					case 'n':
-						return LexNull();
-					case 'N':
-						return LexNaN();
-					case 'I':
-						return LexInfinity();
-					case '-':
-						return reader.Peek() == 'I' ? LexNegativeInfinity() : LexNumeric(nextChar);
+					case '"':
+						return LexString(); // Need to account for properties etc.
+					default:
+						BufferToken();
+						return LexToken();
+				}
+			}
+		}
+
+		private VsonToken LexWhiteSpace()
+		{
+			int next;
+
+			// LexWhiteSpace should only be called if the next char is ' ' or '\t'
+			do
+			{
+				buffer.Append((char)reader.Read());
+			} while((next = reader.Peek()) == ' ' || next == '\t');
+
+			currentPosition = currentPosition.Advance(buffer.Length);
+			return new VsonToken(VsonTokenType.WhiteSpace, new VsonString(Debuffer()));
+		}
+
+		private void SkipWhiteSpaceAndNewLine()
+		{
+			var offset = 0;
+			for(;;)
+			{
+				var next = reader.Peek();
+				switch(next)
+				{
+					case ' ':
+					case '\t':
+						reader.Read();
+						offset++;
+						break;
+					case '\n':
+						reader.Read();
+						currentPosition = currentPosition.NewLine(offset + 1);
+						offset = 0;
+						break;
+					case '\r':
+						reader.Read();
+						next = reader.Peek();
+						if(next == '\n')
+						{
+							reader.Read();
+							offset += 2;
+						}
+						else
+							offset += 1;
+						currentPosition = currentPosition.NewLine(offset);
+						offset = 0;
+						break;
+					default:
+						currentPosition = currentPosition.Advance(offset);
+						return;
+				}
+			}
+		}
+
+		private VsonToken LexComment()
+		{
+			// LexComment should only be called when the next char is '/'
+			buffer.Append((char)reader.Read());
+			var next = reader.Peek();
+			switch(next)
+			{
+				case '/':
+					return LexLineComment();
+				case '*':
+					return LexBlockComment();
+				case EOF:
+					currentPosition = currentPosition.Advance();
+					throw VsonReaderException.UnexpectedEndOfFile(currentPosition);
+				default:
+					currentPosition = currentPosition.Advance();
+					throw VsonReaderException.UnexpectedCharacter(currentPosition, (char)next);
+			}
+		}
+
+		private VsonToken LexLineComment()
+		{
+			int next;
+
+			// LexLineComment should only be called when the next char is '/'
+			do
+			{
+				buffer.Append((char)reader.Read());
+			} while((next = reader.Peek()) != '\r' && next == '\n' && next != EOF);
+
+			currentPosition = currentPosition.Advance(buffer.Length);
+			return new VsonToken(VsonTokenType.LineComment, new VsonString(Debuffer()));
+		}
+
+		private VsonToken LexBlockComment()
+		{
+			// LexLineComment should only be called when the next char is '*'
+			buffer.Append((char)reader.Read());
+
+			var offset = 0;
+			var lastCharStar = false;
+			for(;;)
+			{
+				var next = reader.Peek();
+				switch(next)
+				{
+					case EOF:
+						currentPosition = currentPosition.Advance(offset);
+						throw VsonReaderException.UnexpectedEndOfFile(currentPosition);
+					case '\n':
+						lastCharStar = false;
+						buffer.Append((char)reader.Read());
+						currentPosition = currentPosition.NewLine(offset + 1);
+						offset = 0;
+						break;
+					case '\r':
+						lastCharStar = false;
+						buffer.Append((char)reader.Read());
+						next = reader.Peek();
+						if(next == '\n')
+						{
+							buffer.Append((char)reader.Read());
+							offset += 2;
+						}
+						else
+							offset += 1;
+						currentPosition = currentPosition.NewLine(offset);
+						offset = 0;
+						break;
+					case '*':
+						lastCharStar = true;
+						buffer.Append((char)reader.Read());
+						offset++;
+						break;
+					case '/':
+						if(lastCharStar)
+						{
+							buffer.Append((char)reader.Read());
+							currentPosition = currentPosition.Advance(offset + 1);
+							return new VsonToken(VsonTokenType.BlockComment, new VsonString(Debuffer()));
+						}
+						goto default;
+					default:
+						lastCharStar = false;
+						buffer.Append((char)reader.Read());
+						offset++;
+						break;
+				}
+			}
+		}
+
+		private VsonToken LexString()
+		{
+			throw new System.NotImplementedException();
+		}
+
+		private void BufferToken()
+		{
+			for(;;)
+			{
+				var next = reader.Peek();
+				switch(next)
+				{
+					case EOF:
+					case '[':
+					case ']':
+					case ',':
+					case '"':
+					case '{':
+					case '}':
+					case '/':
+					case ' ':
+					case '\t':
+					case '\n':
+					case '\r':
+						currentPosition = currentPosition.Advance(buffer.Length);
+						return;
 					case '+':
+					case '-':
+					case '.':
 					case '0':
 					case '1':
 					case '2':
@@ -126,165 +333,114 @@ namespace Vson.IO
 					case '7':
 					case '8':
 					case '9':
-						return LexNumeric(nextChar);
-					case '"':
-						return LexString(); // Need to account for properties etc.
+					case ':':
+						buffer.Append((char)reader.Read());
+						break;
 					default:
-						throw new NotImplementedException(); // Invalid char
+						if((next >= 'a' && next <= 'z') || (next >= 'A' && next <= 'Z'))
+						{
+							buffer.Append((char)reader.Read());
+							continue;
+						}
+						currentPosition = currentPosition.Advance(buffer.Length);
+						throw VsonReaderException.UnexpectedCharacter(currentPosition, (char)reader.Read());
 				}
 			}
 		}
 
-		private VsonToken LexString()
+		private VsonToken LexToken()
 		{
-			throw new System.NotImplementedException();
-		}
-
-		private VsonToken LexNumeric(char nextChar)
-		{
-			buffer.Append(nextChar);
-			if(nextChar == '-' || nextChar == '+')
-				ReadDigit();
-
-			ReadDigits();
-
-			// Now we decide what to kind of token this really is
-			var next = reader.Peek();
-			switch(next)
+			// The token should already be in the buffer, we just need to figure out what it is
+			var token = Debuffer();
+			var firstChar = token[0];
+			switch(firstChar)
 			{
-				// integer
-				case -1:
-				case ',':
-				case ']':
-				case ')':
-				case '}':
-				case ' ':
-				case '\t':
-				case '\r':
-				case '\n':
-				// decimal
-				case '.':
-				// exponent
-				case 'e':
-				case 'E':
-					return LexNumber();
+				case 't':
+				case 'f':
+				case 'n':
+				case 'N':
+				case 'I':
+					return LexKeyword(token);
 				case '-':
-					return LexDate();
+					if(token.Length >= 2 && token[1] == 'I')
+						return LexKeyword(token);
+					goto default;
 				default:
-					throw VsonReaderException.UnexpectedCharacter((char)next);
+					if(token.LastIndexOfAny(DateTimeCharacters) > 1 && token.IndexOfAny(ExponentCharacters) == -1)
+						return LexDateTime(token);
+
+					return LexNumber(token);
 			}
 		}
 
-		private void ReadDigit()
+		private VsonToken LexKeyword(string token)
 		{
-			var next = reader.Read();
-			if(next == -1) throw VsonReaderException.UnexpectedEndOfFile();
-			if(next < '0' || next > '9') throw VsonReaderException.UnexpectedCharacter((char)next);
-			buffer.Append((char)next);
+			VsonToken keywordToken;
+			if(KeywordTokens.TryGetValue(token, out keywordToken))
+				return keywordToken;
+
+			throw VsonReaderException.InvalidToken(lastTokenPosition, token);
 		}
 
-		private void ReadDigits()
+		private VsonToken LexDateTime(string token)
 		{
-			int next;
-			while((next = reader.Peek()) >= '0' && next <= '9')
-				buffer.Append((char)reader.Read());
+			throw new System.NotImplementedException();
 		}
 
-		private VsonToken LexNumber()
+		private VsonToken LexNumber(string token)
 		{
-			int next;
+			var pos = 0;
 
-			// Look for decimals
-			if(reader.Peek() == '.')
-			{
-				buffer.Append((char)reader.Read());
-				ReadDigit();
-				ReadDigits();
-			}
+			// Negative sign
+			if(pos < token.Length && token[pos] == '-')
+				pos++;
 
-			// Now look for extensions
-			if((next = reader.Peek()) == 'e' || next == 'E')
+			// Integer part
+			if(pos >= token.Length)
+				throw VsonReaderException.InvalidToken(lastTokenPosition, token);
+			if(token[pos] == '0')
+				pos++;
+			else
 			{
-				buffer.Append((char)reader.Read());
-				next = reader.Peek();
-				if(next == '-' || next == '+')
+				if(!(token[pos] >= '1' && token[pos] <= '9'))
+					throw VsonReaderException.InvalidToken(lastTokenPosition, token);
+				do
 				{
-					buffer.Append((char)reader.Read());
-					next = reader.Peek();
-				}
-				ReadDigit();
-				ReadDigits();
+					pos++;
+				} while(pos < token.Length && token[pos] >= '0' && token[pos] <= '9');
 			}
 
-			var stringValue = Debuffer();
-			if(stringValue[0] == '+') throw VsonReaderException.InvalidNumber(stringValue);
-			// Check for leading zero
+			// Fraction part
+			if(pos < token.Length && token[pos] == '.')
+			{
+				pos++;
+				if(pos >= token.Length || !(token[pos] >= '0' && token[pos] <= '9'))
+					throw VsonReaderException.InvalidToken(lastTokenPosition, token);
+				do
+				{
+					pos++;
+				} while(pos < token.Length && token[pos] >= '0' && token[pos] <= '9');
+			}
 
-			double value;
-			if(double.TryParse(stringValue, NumberStyles.AllowLeadingSign, null, out value))
-				return new VsonToken(VsonTokenType.Number, new VsonNumber(value));
+			// Exponent part
+			if(pos < token.Length && (token[pos] == 'e' || token[pos] == 'E'))
+			{
+				pos++;
+				if(pos >= token.Length)
+					throw VsonReaderException.InvalidToken(lastTokenPosition, token);
+				if(token[pos] == '+' || token[pos] == '-') pos++;
+				if(pos >= token.Length || !(token[pos] >= '0' && token[pos] <= '9'))
+					throw VsonReaderException.InvalidToken(lastTokenPosition, token);
+				do
+				{
+					pos++;
+				} while(pos < token.Length && token[pos] >= '0' && token[pos] <= '9');
+			}
 
-			throw new VsonReaderException($"'{stringValue}' cannot be converted to a double");
-		}
+			if(token.Length != pos) // non-consumed characters
+				throw VsonReaderException.InvalidToken(lastTokenPosition, token);
 
-		private VsonToken LexNegativeInfinity()
-		{
-			throw new System.NotImplementedException();
-		}
-
-		private VsonToken LexInfinity()
-		{
-			throw new System.NotImplementedException();
-		}
-
-		private VsonToken LexNaN()
-		{
-			throw new System.NotImplementedException();
-		}
-
-		private VsonToken LexDate()
-		{
-			throw new System.NotImplementedException();
-		}
-
-		private VsonToken LexNull()
-		{
-			throw new System.NotImplementedException();
-		}
-
-		private VsonToken LexFalse()
-		{
-			throw new System.NotImplementedException();
-		}
-
-		private VsonToken LexTrue()
-		{
-			throw new System.NotImplementedException();
-		}
-
-		private VsonToken LexComment()
-		{
-			throw new System.NotImplementedException();
-		}
-
-		private VsonToken LexWhiteSpace()
-		{
-			int nextChar;
-
-			while((nextChar = reader.Peek()) == ' ' || nextChar == '\t')
-				buffer.Append((char)reader.Read());
-
-			return new VsonToken(VsonTokenType.WhiteSpace, new VsonString(Debuffer()));
-		}
-
-		private VsonToken? LexEndOfFile()
-		{
-			throw new System.NotImplementedException();
-		}
-
-		private bool LexValueWithSeparator(string value)
-		{
-			throw new NotImplementedException();
+			return new VsonToken(VsonTokenType.Number, new VsonNumber(token));
 		}
 
 		public override void Close()

@@ -1,6 +1,6 @@
 ﻿namespace Vson.IO
 {
-	public enum VsonTokenType
+	public enum VsonTokenType : byte
 	{
 		None = 0,
 		String,
