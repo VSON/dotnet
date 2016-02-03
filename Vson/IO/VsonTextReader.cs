@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using Vson.Model;
@@ -296,7 +297,30 @@ namespace Vson.IO
 
 		private VsonToken LexString()
 		{
-			throw new System.NotImplementedException();
+			// LexString should only be called when the next char is '"'
+			reader.Read();
+			var offset = 1; // Start at one to count the " char
+			for(;;)
+			{
+				var next = reader.Peek();
+				switch(next)
+				{
+					case EOF:
+						currentPosition = currentPosition.Advance(offset);
+						throw VsonReaderException.UnexpectedEndOfFile(currentPosition);
+					case '"':
+						reader.Read();
+						currentPosition = currentPosition.Advance(offset + 1);
+						return new VsonToken(VsonTokenType.String, new VsonString(Debuffer()));
+					case '\\':
+						reader.Read();
+						throw new NotImplementedException();
+					default:
+						offset++;
+						buffer.Append((char)reader.Read());
+						break;
+				}
+			}
 		}
 
 		private void BufferToken()

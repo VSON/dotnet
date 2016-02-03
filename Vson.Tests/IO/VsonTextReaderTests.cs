@@ -66,5 +66,16 @@ namespace Vson.Tests.IO
 			reader = new VsonTextReader("-");
 			Assert.Throws<VsonReaderException>(() => reader.NextToken());
 		}
+
+		[Test]
+		public void ParseStringWithSingleQuoteInsideDoubleQuote()
+		{
+			var vson = "\"Somebody's Stuff\"";
+
+			var reader = new VsonTextReader(vson);
+			var token = reader.NextToken().Value;
+			Assert.AreEqual(VsonTokenType.String, token.Type);
+			Assert.AreEqual(new VsonString("Somebody's Stuff"), token.Value);
+		}
 	}
 }
