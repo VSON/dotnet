@@ -1,5 +1,4 @@
-﻿using System;
-using NUnit.Framework;
+﻿using NUnit.Framework;
 using Vson.IO;
 using Vson.Model;
 
@@ -16,7 +15,7 @@ namespace Vson.Tests.IO
 		}
 
 		[Test]
-		public void ParseDoubles()
+		public void ParseNumbers()
 		{
 			VsonTextReader reader;
 			VsonToken token;
@@ -24,41 +23,33 @@ namespace Vson.Tests.IO
 			reader = new VsonTextReader("1.1");
 			token = reader.NextToken().Value;
 			Assert.AreEqual(VsonTokenType.Number, token.Type);
-			Assert.AreEqual(1.1, ((VsonNumber)token.Value).AsDouble());
+			Assert.AreEqual(new VsonNumber("1.1"), token.Value);
 
 			reader = new VsonTextReader("-1.1");
 			token = reader.NextToken().Value;
 			Assert.AreEqual(VsonTokenType.Number, token.Type);
-			Assert.AreEqual(-1.1, ((VsonNumber)token.Value).AsDouble());
+			Assert.AreEqual(new VsonNumber("-1.1"), token.Value);
 
 			reader = new VsonTextReader("0.0");
 			token = reader.NextToken().Value;
 			Assert.AreEqual(VsonTokenType.Number, token.Type);
-			Assert.AreEqual(0.0, ((VsonNumber)token.Value).AsDouble());
+			Assert.AreEqual(new VsonNumber("0.0"), token.Value);
 
 			reader = new VsonTextReader("-0.0");
 			token = reader.NextToken().Value;
 			Assert.AreEqual(VsonTokenType.Number, token.Type);
-			// To be safe check for negative zero becuase I bet Assert.AreEqual() doesn't
-			Assert.IsTrue(IsNegativeZero(((VsonNumber)token.Value).AsDouble().Value));
-
-			reader = new VsonTextReader("9999999999999999999999999999999999999999999999999999999999999999999999999999asdasdasd");
-			Assert.Throws<VsonReaderException>(() => reader.NextToken());
+			Assert.AreEqual(new VsonNumber("-0.0"), token.Value);
 
 			reader = new VsonTextReader("1E-06");
 			token = reader.NextToken().Value;
 			Assert.AreEqual(VsonTokenType.Number, token.Type);
-			Assert.AreEqual(new VsonNumber(0.000001d), token.Value);
+			Assert.AreEqual(new VsonNumber("1E-06"), token.Value);
+
+			reader = new VsonTextReader("9999999999999999999999999999999999999999999999999999999999999999999999999999asdasdasd");
+			Assert.Throws<VsonReaderException>(() => reader.NextToken());
 
 			reader = new VsonTextReader("-");
 			Assert.Throws<VsonReaderException>(() => reader.NextToken());
-		}
-
-		private static readonly long NegativeZeroBits = BitConverter.DoubleToInt64Bits(-0.0);
-
-		public static bool IsNegativeZero(double x)
-		{
-			return BitConverter.DoubleToInt64Bits(x) == NegativeZeroBits;
 		}
 	}
 }
