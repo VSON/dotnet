@@ -143,6 +143,12 @@ namespace Vson.IO
 						reader.Read();
 						containers.Pop(); // TODO validate
 						return new VsonToken(VsonTokenType.EndArray);
+					case ',':
+						reader.Read();
+						if(readWhiteSpace)
+							return new VsonToken(VsonTokenType.Comma);
+
+						continue;
 					case '"':
 						return LexString(); // Need to account for properties etc.
 					default:

@@ -18,5 +18,6 @@
 		LineComment,
 		BlockComment,
 		NewLine,
+		Comma,
 	}
 }
