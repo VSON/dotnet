@@ -81,6 +81,21 @@ namespace Vson.Tests.IO
 		}
 
 		[Test]
+		[TestCase("\"", "Unexpected end of file at char 1, line 1, column 2")]
+		[TestCase("\"\\", "Unexpected end of file at char 2, line 1, column 3")]
+		[TestCase("\"\\u", "Unexpected end of file at char 3, line 1, column 4")]
+		[TestCase("\"\\u12", "Unexpected end of file at char 5, line 1, column 6")]
+		[TestCase("\"\\u{12", "Unexpected end of file at char 6, line 1, column 7")]
+		[TestCase("\"\\P\"", "Unexpected character 'P' encountered at char 2, line 1, column 3")]
+		[TestCase("\"\\uW\"", "Unexpected character 'W' encountered at char 3, line 1, column 4")]
+		[TestCase("\"\\u{W}\"", "Unexpected character 'W' encountered at char 4, line 1, column 5")]
+		public void ParseStringsInvalid(string vson, string expectedMessage)
+		{
+			var reader = new VsonTextReader(vson);
+			AssertNextTokenThrows(reader, expectedMessage);
+		}
+
+		[Test]
 		public void ParseEmptyArray()
 		{
 			var reader = new VsonTextReader("[]");
