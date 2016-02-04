@@ -50,6 +50,9 @@ namespace Vson.Tests.IO
 
 		[Test]
 		[TestCase("9999999999999999999999999999999999999999999999999999999999999999999999999999asdasdasd", "Invalid token '9999999999999999999999999999999999999999999999999999999999999999999999999999asdasdasd' at char 0, line 1, column 1")]
+		[TestCase("0123", "Invalid token '0123' at char 0, line 1, column 1")]
+		[TestCase(".23", "Invalid token '.23' at char 0, line 1, column 1")]
+		[TestCase("-.23", "Invalid token '-.23' at char 0, line 1, column 1")]
 		public void ParseNumbersInvalid(string vson, string expectedMessage)
 		{
 			var reader = new VsonTextReader(vson);
@@ -59,6 +62,18 @@ namespace Vson.Tests.IO
 		[Test]
 		[TestCase("\"Somebody's Stuff\"", "Somebody's Stuff")]
 		[TestCase("\"A surrogate pair: \uD835\uDEE2\"", "A surrogate pair: \uD835\uDEE2")]
+		[TestCase("\"\\\"\"", "\"")]
+		[TestCase("\"\\\\\"", "\\")]
+		[TestCase("\"\\/\"", "/")]
+		[TestCase("\"\\b\"", "\b")]
+		[TestCase("\"\\f\"", "\f")]
+		[TestCase("\"\\n\"", "\n")]
+		[TestCase("\"\\r\"", "\r")]
+		[TestCase("\"\\t\"", "\t")]
+		[TestCase("\"\\v\"", "\v")]
+		[TestCase("\"\\u2f6A\"", "\u2f6A")]
+		[TestCase("\"\\u{b}\"", "\u000b")]
+		[TestCase("\"\\u{10FFFF}\"", "\U0010FFFF")]
 		public void ParseStrings(string vson, string expected)
 		{
 			var reader = new VsonTextReader(vson);

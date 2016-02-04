@@ -320,13 +320,147 @@ namespace Vson.IO
 						return new VsonToken(VsonTokenType.String, new VsonString(Debuffer()));
 					case '\\':
 						reader.Read();
-						throw new NotImplementedException();
+						next = reader.Peek();
+						switch(next)
+						{
+							case EOF:
+								currentPosition = currentPosition.Advance(offset + 1);
+								throw VsonReaderException.UnexpectedEndOfFile(currentPosition);
+							case '"':
+							case '\\':
+							case '/':
+								buffer.Append((char)reader.Read());
+								offset += 2;
+								break;
+							case 'b':
+								reader.Read();
+								offset += 2;
+								buffer.Append('\b');
+								break;
+							case 'f':
+								reader.Read();
+								offset += 2;
+								buffer.Append('\f');
+								break;
+							case 'n':
+								reader.Read();
+								offset += 2;
+								buffer.Append('\n');
+								break;
+							case 'r':
+								reader.Read();
+								offset += 2;
+								buffer.Append('\r');
+								break;
+							case 't':
+								reader.Read();
+								offset += 2;
+								buffer.Append('\t');
+								break;
+							case 'v':
+								reader.Read();
+								offset += 2;
+								buffer.Append('\v');
+								break;
+							case 'u':
+								reader.Read();
+								currentPosition = currentPosition.Advance(offset); // Let LexUnicodeEscape account for \u
+								offset = 0;
+								LexUnicodeEscape();
+								break;
+							default:
+								currentPosition = currentPosition.Advance(offset + 1);
+								throw VsonReaderException.UnexpectedCharacter(currentPosition, (char)reader.Read());
+						}
+						break;
 					default:
 						offset++;
 						buffer.Append((char)reader.Read());
 						break;
 				}
 			}
+		}
+
+		private void LexUnicodeEscape()
+		{
+			var escapePosition = currentPosition;
+			currentPosition = currentPosition.Advance(2); // for \u
+			var codepoint = 0;
+			var next = reader.Peek();
+			if(next == '{')
+			{
+				reader.Read();
+				currentPosition = currentPosition.Advance();
+				for(var i = 0; i < 6; i++)
+					if(!LexHexDigit(ref codepoint, false))
+						break;
+				next = reader.Read();
+				if(next == EOF) throw VsonReaderException.UnexpectedEndOfFile(currentPosition);
+				if(next != '}') throw VsonReaderException.UnexpectedCharacter(currentPosition, (char)next);
+				currentPosition = currentPosition.Advance();
+			}
+			else
+			{
+				LexHexDigit(ref codepoint);
+				LexHexDigit(ref codepoint);
+				LexHexDigit(ref codepoint);
+				LexHexDigit(ref codepoint);
+			}
+
+			if(codepoint > 0x10FFFF)
+				throw new VsonReaderException(escapePosition, "Invalide Unicode escape sequence");
+
+			if(codepoint <= 0xFFFF)
+				buffer.Append((char) codepoint);
+			else
+				buffer.Append(char.ConvertFromUtf32(codepoint));
+		}
+
+		private bool LexHexDigit(ref int codepoint, bool fixedWidth = true)
+		{
+			var next = reader.Peek();
+			switch(next)
+			{
+				case EOF:
+					throw VsonReaderException.UnexpectedEndOfFile(currentPosition);
+				case '0':
+				case '1':
+				case '2':
+				case '3':
+				case '4':
+				case '5':
+				case '6':
+				case '7':
+				case '8':
+				case '9':
+					codepoint = (codepoint << 4) + (next - '0');
+					break;
+				case 'a':
+				case 'b':
+				case 'c':
+				case 'd':
+				case 'e':
+				case 'f':
+					codepoint = (codepoint << 4) + (next - 'a') + 0xa;
+					break;
+				case 'A':
+				case 'B':
+				case 'C':
+				case 'D':
+				case 'E':
+				case 'F':
+					codepoint = (codepoint << 4) + (next - 'A') + 0xA;
+					break;
+				case '}':
+					if(!fixedWidth) return false;
+					goto default;
+				default:
+					throw VsonReaderException.UnexpectedCharacter(currentPosition, (char)reader.Read());
+			}
+
+			reader.Read();
+			currentPosition = currentPosition.Advance();
+			return true;
 		}
 
 		private void BufferToken()
