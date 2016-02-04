@@ -7,75 +7,74 @@ namespace Vson.Tests.IO
 	[TestFixture]
 	public class VsonTextReaderTests
 	{
+		private static void AssertTokenIs(VsonToken? token, VsonTokenType expectedType, VsonValue expectedValue = null)
+		{
+			Assert.IsNotNull(token, "Token");
+			Assert.AreEqual(expectedType, token.Value.Type);
+			Assert.AreEqual(expectedValue, token.Value.Value);
+		}
+
+		private static void AssertIsEOF(VsonToken? token)
+		{
+			Assert.IsNull(token, "Expected EOF");
+		}
+
+		private static void AssertNextTokenThrows(VsonTextReader reader, string message)
+		{
+			var ex = Assert.Throws<VsonReaderException>(() => reader.NextToken());
+			Assert.AreEqual(message, ex.Message);
+		}
+
 		[Test]
 		public void ParseEmpty()
 		{
 			var reader = new VsonTextReader("");
-			Assert.IsNull(reader.NextToken());
+			AssertIsEOF(reader.NextToken());
 		}
 
 		[Test]
 		public void ParseNumbers()
 		{
 			VsonTextReader reader;
-			VsonToken token;
 
 			reader = new VsonTextReader("1.1");
-			token = reader.NextToken().Value;
-			Assert.AreEqual(VsonTokenType.Number, token.Type);
-			Assert.AreEqual(new VsonNumber("1.1"), token.Value);
+			AssertTokenIs(reader.NextToken(), VsonTokenType.Number, new VsonNumber("1.1"));
 
 			reader = new VsonTextReader("-1.1");
-			token = reader.NextToken().Value;
-			Assert.AreEqual(VsonTokenType.Number, token.Type);
-			Assert.AreEqual(new VsonNumber("-1.1"), token.Value);
+			AssertTokenIs(reader.NextToken(), VsonTokenType.Number, new VsonNumber("-1.1"));
 
 			reader = new VsonTextReader("0.0");
-			token = reader.NextToken().Value;
-			Assert.AreEqual(VsonTokenType.Number, token.Type);
-			Assert.AreEqual(new VsonNumber("0.0"), token.Value);
+			AssertTokenIs(reader.NextToken(), VsonTokenType.Number, new VsonNumber("0.0"));
 
 			reader = new VsonTextReader("-0.0");
-			token = reader.NextToken().Value;
-			Assert.AreEqual(VsonTokenType.Number, token.Type);
-			Assert.AreEqual(new VsonNumber("-0.0"), token.Value);
+			AssertTokenIs(reader.NextToken(), VsonTokenType.Number, new VsonNumber("-0.0"));
 
 			reader = new VsonTextReader("1E-06");
-			token = reader.NextToken().Value;
-			Assert.AreEqual(VsonTokenType.Number, token.Type);
-			Assert.AreEqual(new VsonNumber("1E-06"), token.Value);
+			AssertTokenIs(reader.NextToken(), VsonTokenType.Number, new VsonNumber("1E-06"));
 
 			reader = new VsonTextReader("NaN");
-			token = reader.NextToken().Value;
-			Assert.AreEqual(VsonTokenType.Number, token.Type);
-			Assert.AreEqual(new VsonNumber("NaN"), token.Value);
+			AssertTokenIs(reader.NextToken(), VsonTokenType.Number, new VsonNumber("NaN"));
 
 			reader = new VsonTextReader("Infinity");
-			token = reader.NextToken().Value;
-			Assert.AreEqual(VsonTokenType.Number, token.Type);
-			Assert.AreEqual(new VsonNumber("Infinity"), token.Value);
+			AssertTokenIs(reader.NextToken(), VsonTokenType.Number, new VsonNumber("Infinity"));
 
 			reader = new VsonTextReader("-Infinity");
-			token = reader.NextToken().Value;
-			Assert.AreEqual(VsonTokenType.Number, token.Type);
-			Assert.AreEqual(new VsonNumber("-Infinity"), token.Value);
+			AssertTokenIs(reader.NextToken(), VsonTokenType.Number, new VsonNumber("-Infinity"));
 
 			reader = new VsonTextReader("9999999999999999999999999999999999999999999999999999999999999999999999999999asdasdasd");
-			Assert.Throws<VsonReaderException>(() => reader.NextToken());
+			AssertNextTokenThrows(reader, "Invalid token '9999999999999999999999999999999999999999999999999999999999999999999999999999asdasdasd' at char 0, line 1, column 1");
 
 			reader = new VsonTextReader("-");
-			Assert.Throws<VsonReaderException>(() => reader.NextToken());
+			AssertNextTokenThrows(reader, "Invalid token '-' at char 0, line 1, column 1");
 		}
 
 		[Test]
-		public void ParseStringWithSingleQuoteInsideDoubleQuote()
+		[TestCase("\"Somebody's Stuff\"", "Somebody's Stuff")]
+		[TestCase("\"A surrogate pair: \uD835\uDEE2\"", "A surrogate pair: \uD835\uDEE2")]
+		public void ParseStrings(string vson, string expected)
 		{
-			var vson = "\"Somebody's Stuff\"";
-
 			var reader = new VsonTextReader(vson);
-			var token = reader.NextToken().Value;
-			Assert.AreEqual(VsonTokenType.String, token.Type);
-			Assert.AreEqual(new VsonString("Somebody's Stuff"), token.Value);
+			AssertTokenIs(reader.NextToken(), VsonTokenType.String, new VsonString(expected));
 		}
 	}
 }
