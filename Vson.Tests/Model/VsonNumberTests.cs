@@ -8,13 +8,6 @@ namespace Vson.Tests.Model
 	public class VsonNumberTests
 	{
 		[Test]
-		public void UppercaseE()
-		{
-			var value = new VsonNumber("1e-6");
-			Assert.AreEqual("1E-6", value.ToString());
-		}
-
-		[Test]
 		public void Constants()
 		{
 			Assert.AreEqual("NaN", VsonNumber.NaN.ToString());
@@ -28,7 +21,9 @@ namespace Vson.Tests.Model
 		[TestCase("0.0", 0.0)]
 		[TestCase("0", 0.0)]
 		[TestCase("1e-06", 0.000001)]
+		[TestCase("1E-06", 0.000001)]
 		[TestCase("9e99999999999999", null)]
+		[TestCase("1.7976931348623157E+308", 1.7976931348623157E+308)]
 		[TestCase("NaN", double.NaN)]
 		[TestCase("-Infinity", double.NegativeInfinity)]
 		[TestCase("Infinity", double.PositiveInfinity)]
@@ -44,6 +39,7 @@ namespace Vson.Tests.Model
 		[TestCase("0.0", 0.0)]
 		[TestCase("0", 0.0)]
 		[TestCase("1e-06", 0.000001)]
+		[TestCase("1E-06", 0.000001)]
 		[TestCase("9e99999999999999", null)]
 		[TestCase("NaN", null)]
 		[TestCase("-Infinity", null)]
@@ -63,6 +59,7 @@ namespace Vson.Tests.Model
 		[TestCase("0.0", 0)]
 		[TestCase("0", 0)]
 		[TestCase("1e-06", null)]
+		[TestCase("1E-06", null)]
 		[TestCase("9e99999999999999", null)]
 		[TestCase("NaN", null)]
 		[TestCase("-Infinity", null)]
@@ -76,9 +73,10 @@ namespace Vson.Tests.Model
 		[Test]
 		[TestCase("1.1", null)]
 		[TestCase("-1.1", null)]
-		[TestCase("0.0", 0l)]
-		[TestCase("0", 0l)]
+		[TestCase("0.0", 0L)]
+		[TestCase("0", 0L)]
 		[TestCase("1e-06", null)]
+		[TestCase("1E-06", null)]
 		[TestCase("9e99999999999999", null)]
 		[TestCase("NaN", null)]
 		[TestCase("-Infinity", null)]
@@ -106,6 +104,34 @@ namespace Vson.Tests.Model
 		public static bool IsNegativeZero(double x)
 		{
 			return BitConverter.DoubleToInt64Bits(x) == NegativeZeroBits;
+		}
+
+		[Test]
+		[TestCase("1e-06", "1E-06")]
+		[TestCase("1e-06", "1e-6")]
+		[TestCase("1e-06", "0.000001")]
+		[TestCase("1.0e1", "10")]
+		[TestCase("1e1", "10")]
+		[TestCase("1.0e5", "10e4")]
+		public void Equality(string value1, string value2)
+		{
+			var number1 = new VsonNumber(value1);
+			var number2 = new VsonNumber(value2);
+			Assert.AreEqual(number1.GetHashCode(), number2.GetHashCode(), $"Hash Codes of '{value1}' and '{value2}'");
+			Assert.AreEqual(number1, number2);
+		}
+
+		[Test]
+		[TestCase("1e-06", "1E-6")]
+		[TestCase("1e-6", "1E-6")]
+		[TestCase("0.000001", "1E-6")]
+		[TestCase("1.0e1", "1E1")]
+		[TestCase("10", "1E1")]
+		[TestCase("10e4", "1E5")]
+		[TestCase("11e4", "1.1E5")]
+		public void ToNormalizedString(string number, string normalized)
+		{
+			Assert.AreEqual(normalized, new VsonNumber(number).ToNormalizedString());
 		}
 	}
 }
