@@ -96,6 +96,15 @@ namespace Vson.Tests.IO
 		}
 
 		[Test]
+		[TestCase("true", true)]
+		[TestCase("false", false)]
+		public void ParseBools(string vson, bool expected)
+		{
+			var reader = new VsonTextReader(vson);
+			AssertTokenIs(reader.NextToken(), VsonTokenType.Bool, (VsonBool)expected);
+		}
+
+		[Test]
 		public void ParseEmptyArray()
 		{
 			var reader = new VsonTextReader("[]");

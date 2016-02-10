@@ -46,6 +46,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="IO\VsonTextReaderTests.cs" />
+    <Compile Include="Model\VsonBoolTests.cs" />
     <Compile Include="Model\VsonNumberTests.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
