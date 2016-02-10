@@ -105,6 +105,13 @@ namespace Vson.Tests.IO
 		}
 
 		[Test]
+		public void ParseNull()
+		{
+			var reader = new VsonTextReader("null");
+			AssertTokenIs(reader.NextToken(), VsonTokenType.Null, VsonNull.Value);
+		}
+
+		[Test]
 		public void ParseEmptyArray()
 		{
 			var reader = new VsonTextReader("[]");
