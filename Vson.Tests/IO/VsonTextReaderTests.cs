@@ -112,6 +112,24 @@ namespace Vson.Tests.IO
 		}
 
 		[Test]
+		[TestCase("2016-02-10", 2016, 2, 10, null)]
+		[TestCase("987518-01-01", 987518, 1, 1, null)]
+		[TestCase("0000-12-10", 0, 12, 10, null)]
+		[TestCase("-0001-01-01", -1, 1, 1, null)]
+		[TestCase("-4568791-01-01", -4568791, 1, 1, null)]
+		[TestCase("2016-02-10Z", 2016, 2, 10, 0)]
+		[TestCase("2016-02-10+00:00", 2016, 2, 10, 0)]
+		[TestCase("2016-02-10+05:30", 2016, 2, 10, 5 * 60 + 30)]
+		[TestCase("2016-02-10-05:30", 2016, 2, 10, -(5 * 60 + 30))]
+		public void ParseDates(string vson, long year, byte month, byte day, int? offset)
+		{
+			var reader = new VsonTextReader(vson);
+			AssertTokenIs(reader.NextToken(), VsonTokenType.Date, new VsonDate(year, month, day, (short?)offset));
+		}
+
+		// TODO ParseDatesInvalid
+
+		[Test]
 		public void ParseEmptyArray()
 		{
 			var reader = new VsonTextReader("[]");

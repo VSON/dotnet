@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Numerics;
 using System.Text;
 using Vson.Model;
 
@@ -411,7 +412,7 @@ namespace Vson.IO
 				throw new VsonReaderException(escapePosition, "Invalide Unicode escape sequence");
 
 			if(codepoint <= 0xFFFF)
-				buffer.Append((char) codepoint);
+				buffer.Append((char)codepoint);
 			else
 				buffer.Append(char.ConvertFromUtf32(codepoint));
 		}
@@ -548,7 +549,93 @@ namespace Vson.IO
 
 		private VsonToken LexDateTime(string token)
 		{
-			throw new System.NotImplementedException();
+			var pos = 0;
+
+			// year
+			var negativeYear = false;
+			if(token[pos] == '-')
+			{
+				pos++;
+				negativeYear = true;
+			}
+
+			pos = token.IndexOf('-', pos);
+			BigInteger year;
+			if(pos < 0
+				|| !BigInteger.TryParse(token.Substring(0, pos), out year)
+				|| year == 0 && negativeYear
+				|| pos < (negativeYear ? 5 : 4))
+				throw VsonReaderException.InvalidToken(lastTokenPosition, token);
+
+			// month
+			byte month;
+			if(token[pos] != '-'
+				|| pos + 2 >= token.Length
+				|| !byte.TryParse(token.Substring(pos + 1, 2), out month)
+				|| month < 1
+				|| month > 12)
+				throw VsonReaderException.InvalidToken(lastTokenPosition, token);
+
+			pos += 3;
+
+			// day
+			byte day;
+			if(pos >= token.Length
+				|| token[pos] != '-'
+				|| pos + 2 >= token.Length
+				|| !byte.TryParse(token.Substring(pos + 1, 2), out day)
+				|| day < 1
+				|| day > VsonDate.DaysInMonth(year, day))
+				throw VsonReaderException.InvalidToken(lastTokenPosition, token);
+
+			pos += 3;
+
+			// time
+			if(pos < token.Length && token[pos] == 'T')
+			{
+				throw new NotImplementedException();
+			}
+
+			// offset
+			short? offset = null;
+			if(pos < token.Length)
+				switch(token[pos])
+				{
+					case 'Z':
+						offset = 0;
+						pos++;
+						break;
+					case '+':
+					case '-':
+						short offsetHours;
+						if(pos + 3 > token.Length
+							|| !short.TryParse(token.Substring(pos, 3), out offsetHours)
+							|| offsetHours > 24
+							|| offsetHours < -24)
+							throw VsonReaderException.InvalidToken(lastTokenPosition, token);
+						offset = (short)(offsetHours * 60);
+						pos += 3;
+						if(pos < token.Length)
+						{
+							short offsetMinutes;
+							if(pos + 3 > token.Length
+								|| token[pos] != ':'
+								|| !short.TryParse(token.Substring(pos + 1, 2), out offsetMinutes)
+								|| offsetMinutes > 59
+								|| offsetMinutes < 0)
+								throw VsonReaderException.InvalidToken(lastTokenPosition, token);
+							offset += (short)(offsetMinutes * Math.Sign(offset.Value));
+							pos += 3;
+							if(offset > 24 * 60 || offset < -24 * 60)
+								throw VsonReaderException.InvalidToken(lastTokenPosition, token);
+						}
+						break;
+				}
+
+			if(token.Length != pos) // non-consumed characters
+				throw VsonReaderException.InvalidToken(lastTokenPosition, token);
+
+			return new VsonToken(VsonTokenType.Date, new VsonDate(year, month, day, offset));
 		}
 
 		private VsonToken LexNumber(string token)
