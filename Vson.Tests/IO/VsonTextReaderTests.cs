@@ -130,6 +130,24 @@ namespace Vson.Tests.IO
 		// TODO ParseDatesInvalid
 
 		[Test]
+		[TestCase("2016-02-10T00:00", 2016, 2, 10, 0, 0, 0, "", null)]
+		[TestCase("987518-01-01T24:00", 987518, 1, 1, 24, 0, 0, "", null)]
+		[TestCase("0000-12-10T01:02:03", 0, 12, 10, 1, 2, 3, "", null)]
+		[TestCase("-0001-01-01T12:13:14.041245413", -1, 1, 1, 12, 13, 14, "041245413", null)]
+		[TestCase("-4568791-01-01T12:13:14.041245413000", -4568791, 1, 1, 12, 13, 14, "041245413", null)]
+		[TestCase("2016-02-10T12:13:14.041245413Z", 2016, 2, 10, 12, 13, 14, "041245413", 0)]
+		[TestCase("2016-02-10T12:13:14.041245413000+00:00", 2016, 2, 10, 12, 13, 14, "041245413", 0)]
+		[TestCase("2016-02-10T01:02:03+05:30", 2016, 2, 10, 1, 2, 3, "", 5 * 60 + 30)]
+		[TestCase("2016-02-10T01:02-05:30", 2016, 2, 10, 1, 2, 0, "", -(5 * 60 + 30))]
+		public void ParseDateTimes(string vson, long year, byte month, byte day, byte hours, byte min, byte sec, string frac, int? offset)
+		{
+			var reader = new VsonTextReader(vson);
+			AssertTokenIs(reader.NextToken(), VsonTokenType.DateTime, new VsonDateTime(year, month, day, hours, min, sec, frac, (short?)offset));
+		}
+
+		// TODO ParseDateTimesInvalid
+
+		[Test]
 		public void ParseEmptyArray()
 		{
 			var reader = new VsonTextReader("[]");

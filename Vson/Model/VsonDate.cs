@@ -1,11 +1,9 @@
-﻿using System;
-using System.Numerics;
+﻿using System.Numerics;
 
 namespace Vson.Model
 {
 	public class VsonDate : VsonValue
 	{
-
 		private static readonly byte[] DaysInMonths = { 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 };
 
 		public readonly BigInteger Year;
@@ -13,7 +11,7 @@ namespace Vson.Model
 		public readonly byte Day;
 		public readonly short? TimeZoneOffset;
 
-		internal VsonDate(BigInteger year, byte month, byte day, short? timeZoneOffset = null)
+		internal VsonDate(BigInteger year, byte month, byte day, short? timeZoneOffset)
 		{
 			Year = year;
 			Month = month;
@@ -41,11 +39,21 @@ namespace Vson.Model
 
 		public override string ToString()
 		{
+			return ToDateString() + ToTimeZoneOffsetString();
+		}
+
+		internal string ToDateString()
+		{
+			return $"{Year:0000}-{Month:00}-{Day:00}";
+		}
+
+		internal string ToTimeZoneOffsetString()
+		{
 			if(TimeZoneOffset == null)
-				return $"{Year:0000}-{Month:00}-{Day:00}";
+				return "";
 			if(TimeZoneOffset == 0)
-				return $"{Year:0000}-{Month:00}-{Day:00}Z";
-			return $"{Year:0000}-{Month:00}-{Day:00}{TimeZoneOffset:+00:00;-00:00}";
+				return "Z";
+			return $"{TimeZoneOffset:+00:00;-00:00}";
 		}
 
 		internal static bool IsLeapYear(BigInteger year)

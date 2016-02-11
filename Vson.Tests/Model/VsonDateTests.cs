@@ -20,7 +20,7 @@ namespace Vson.Tests.Model
 		[TestCase(-4568791, 1, 1, "-4568791-01-01")]
 		public void ToStringValue(long year, byte month, byte day, string expected)
 		{
-			Assert.AreEqual(expected, new VsonDate(year, month, day).ToString());
+			Assert.AreEqual(expected, new VsonDate(year, month, day, null).ToString());
 			Assert.AreEqual(expected + "Z", new VsonDate(year, month, day, Utc).ToString());
 			Assert.AreEqual(expected + "+05:30", new VsonDate(year, month, day, FiveAndHalf).ToString());
 			Assert.AreEqual(expected + "-05:30", new VsonDate(year, month, day, NegFiveAndHalf).ToString());

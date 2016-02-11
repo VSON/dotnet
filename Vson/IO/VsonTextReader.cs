@@ -12,6 +12,7 @@ namespace Vson.IO
 		private const int EOF = -1;
 		private static readonly char[] ExponentCharacters = { 'e', 'E' };
 		private static readonly char[] DateTimeCharacters = { ':', 'T', 'Z', '+', '-' };
+		private const byte None = 255;
 
 		private static readonly VsonToken LineFeedToken = new VsonToken(VsonTokenType.NewLine, new VsonString("\n"));
 		private static readonly VsonToken CarriageReturnToken = new VsonToken(VsonTokenType.NewLine, new VsonString("\r"));
@@ -591,9 +592,47 @@ namespace Vson.IO
 			pos += 3;
 
 			// time
+			byte hours = None; // Watch out for strange flag values because 0 is valid
+			byte min = None;
+			byte sec = 0;
+			var frac = "";
 			if(pos < token.Length && token[pos] == 'T')
 			{
-				throw new NotImplementedException();
+				pos++;
+				if(pos + 2 > token.Length
+					|| !byte.TryParse(token.Substring(pos, 2), out hours)
+					|| hours > 24)
+					throw VsonReaderException.InvalidToken(lastTokenPosition, token);
+				pos += 2;
+				if(pos + 3 > token.Length
+				   || !byte.TryParse(token.Substring(pos + 1, 2), out min)
+				   || min > 59
+				   || (hours == 24 && min != 0))
+					throw VsonReaderException.InvalidToken(lastTokenPosition, token);
+				pos += 3;
+				if(pos < token.Length && token[pos] == ':')
+				{
+					pos++;
+					if(pos + 2 > token.Length
+						|| !byte.TryParse(token.Substring(pos, 2), out sec)
+						|| sec > 59
+						|| (hours == 24 && sec != 0))
+						throw VsonReaderException.InvalidToken(lastTokenPosition, token);
+					pos += 2;
+					if(pos < token.Length && token[pos] == '.')
+					{
+						pos++;
+						var fracEnd = token.IndexOfAny(DateTimeCharacters, pos);
+						if(fracEnd == -1) fracEnd = token.Length;
+						frac = token.Substring(pos, fracEnd - pos).TrimEnd('0');
+						foreach(char t in frac)
+							if(t < '0' || t > '9')
+								throw VsonReaderException.InvalidToken(lastTokenPosition, token);
+						if(hours == 24 && frac != "")
+							throw VsonReaderException.InvalidToken(lastTokenPosition, token);
+						pos = fracEnd;
+					}
+				}
 			}
 
 			// offset
@@ -634,6 +673,9 @@ namespace Vson.IO
 
 			if(token.Length != pos) // non-consumed characters
 				throw VsonReaderException.InvalidToken(lastTokenPosition, token);
+
+			if(hours != None)
+				return new VsonToken(VsonTokenType.DateTime, new VsonDateTime(year, month, day, hours, min, sec, frac, offset));
 
 			return new VsonToken(VsonTokenType.Date, new VsonDate(year, month, day, offset));
 		}
