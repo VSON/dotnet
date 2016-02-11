@@ -464,6 +464,69 @@ namespace Vson.Tests.IO
 
 		#region Nesting
 		// TODO test nesting parsing (i.e. "[{}]" vs "[{]}")
+		[Test]
+		public void ParseEmptyObjectInArray()
+		{
+			var reader = new VsonTextReader("[{}]", true);
+			AssertTokenIs(reader.NextToken(), VsonTokenType.StartArray);
+			AssertTokenIs(reader.NextToken(), VsonTokenType.StartObject);
+			AssertTokenIs(reader.NextToken(), VsonTokenType.EndObject);
+			AssertTokenIs(reader.NextToken(), VsonTokenType.EndArray);
+			AssertIsEOF(reader.NextToken());
+		}
+
+		[Test]
+		public void ParseImproperNesting()
+		{
+			var reader = new VsonTextReader("[{]}", true);
+			AssertTokenIs(reader.NextToken(), VsonTokenType.StartArray);
+			AssertTokenIs(reader.NextToken(), VsonTokenType.StartObject);
+			AssertNextTokenThrows(reader, "Unexpected end of array ']' at char 2, line 1, column 3");
+		}
+
+		[Test]
+		public void ParseContinueArray()
+		{
+			var reader = new VsonTextReader("[{},2]", true);
+			AssertTokenIs(reader.NextToken(), VsonTokenType.StartArray);
+			AssertTokenIs(reader.NextToken(), VsonTokenType.StartObject);
+			AssertTokenIs(reader.NextToken(), VsonTokenType.EndObject);
+			AssertTokenIs(reader.NextToken(), VsonTokenType.Comma);
+			AssertTokenIs(reader.NextToken(), VsonTokenType.Number, new VsonNumber("2"));
+			AssertTokenIs(reader.NextToken(), VsonTokenType.EndArray);
+			AssertIsEOF(reader.NextToken());
+
+			reader = new VsonTextReader("[{}2]", true);
+			AssertTokenIs(reader.NextToken(), VsonTokenType.StartArray);
+			AssertTokenIs(reader.NextToken(), VsonTokenType.StartObject);
+			AssertTokenIs(reader.NextToken(), VsonTokenType.EndObject);
+			AssertNextTokenThrows(reader, "Unexpected number '2' at char 3, line 1, column 4");
+		}
+
+		[Test]
+		public void ParseContinueObject()
+		{
+			var reader = new VsonTextReader("{\"a\":[],\"b\":1}", true);
+			AssertTokenIs(reader.NextToken(), VsonTokenType.StartObject);
+			AssertTokenIs(reader.NextToken(), VsonTokenType.PropertyName, new VsonString("a"));
+			AssertTokenIs(reader.NextToken(), VsonTokenType.Colon);
+			AssertTokenIs(reader.NextToken(), VsonTokenType.StartArray);
+			AssertTokenIs(reader.NextToken(), VsonTokenType.EndArray);
+			AssertTokenIs(reader.NextToken(), VsonTokenType.Comma);
+			AssertTokenIs(reader.NextToken(), VsonTokenType.PropertyName, new VsonString("b"));
+			AssertTokenIs(reader.NextToken(), VsonTokenType.Colon);
+			AssertTokenIs(reader.NextToken(), VsonTokenType.Number, new VsonNumber("1"));
+			AssertTokenIs(reader.NextToken(), VsonTokenType.EndObject);
+			AssertIsEOF(reader.NextToken());
+
+			reader = new VsonTextReader("{\"a\":[]\"b\":1}", true);
+			AssertTokenIs(reader.NextToken(), VsonTokenType.StartObject);
+			AssertTokenIs(reader.NextToken(), VsonTokenType.PropertyName, new VsonString("a"));
+			AssertTokenIs(reader.NextToken(), VsonTokenType.Colon);
+			AssertTokenIs(reader.NextToken(), VsonTokenType.StartArray);
+			AssertTokenIs(reader.NextToken(), VsonTokenType.EndArray);
+			AssertNextTokenThrows(reader, "Unexpected start of string '\"' at char 7, line 1, column 8");
+		}
 		#endregion
 
 		#region Whitespace
