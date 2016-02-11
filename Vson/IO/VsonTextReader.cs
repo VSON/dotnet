@@ -264,7 +264,7 @@ namespace Vson.IO
 			do
 			{
 				buffer.Append((char)reader.Read());
-			} while((next = reader.Peek()) != '\r' && next == '\n' && next != EOF);
+			} while((next = reader.Peek()) != '\r' && next != '\n' && next != EOF);
 
 			currentPosition = currentPosition.Advance(buffer.Length);
 			return new VsonToken(VsonTokenType.LineComment, new VsonString(Debuffer()));
@@ -272,10 +272,10 @@ namespace Vson.IO
 
 		private VsonToken LexBlockComment()
 		{
-			// LexLineComment should only be called when the next char is '*'
+			// LexBlockComment should only be called when the next char is '*'
 			buffer.Append((char)reader.Read());
 
-			var offset = 0;
+			var offset = 2; // '/*' is in the buffer
 			var lastCharStar = false;
 			for(;;)
 			{

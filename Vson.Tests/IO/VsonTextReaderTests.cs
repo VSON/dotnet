@@ -661,7 +661,72 @@ namespace Vson.Tests.IO
 		#endregion
 
 		#region Comments
-		// TODO test comment parsing
+		[Test]
+		public void SkipCommentsAroundRoot()
+		{
+			var reader = new VsonTextReader("/* c */ // hi\n5/**///\r\n//\r");
+			AssertTokenIs(reader.NextToken(), VsonTokenType.Number, new VsonNumber("5"));
+			AssertLastTokenPosition(reader, 14, 1, 0);
+			AssertIsEOF(reader.NextToken());
+		}
+
+		[Test]
+		public void ParseCommentsAroundRoot()
+		{
+			var reader = new VsonTextReader("/* c */ // hi\n5/**///\r\n//\r", true);
+			AssertTokenIs(reader.NextToken(), VsonTokenType.BlockComment, new VsonString("/* c */"));
+			AssertLastTokenPosition(reader, 0, 0, 0);
+			AssertTokenIs(reader.NextToken(), VsonTokenType.WhiteSpace, new VsonString(" "));
+			AssertLastTokenPosition(reader, 7, 0, 7);
+			AssertTokenIs(reader.NextToken(), VsonTokenType.LineComment, new VsonString("// hi"));
+			AssertLastTokenPosition(reader, 8, 0, 8);
+			AssertTokenIs(reader.NextToken(), VsonTokenType.NewLine, new VsonString("\n"));
+			AssertLastTokenPosition(reader, 13, 0, 13);
+
+			AssertTokenIs(reader.NextToken(), VsonTokenType.Number, new VsonNumber("5"));
+			AssertLastTokenPosition(reader, 14, 1, 0);
+
+			AssertTokenIs(reader.NextToken(), VsonTokenType.BlockComment, new VsonString("/**/"));
+			AssertLastTokenPosition(reader, 15, 1, 1);
+			AssertTokenIs(reader.NextToken(), VsonTokenType.LineComment, new VsonString("//"));
+			AssertLastTokenPosition(reader, 19, 1, 5);
+			AssertTokenIs(reader.NextToken(), VsonTokenType.NewLine, new VsonString("\r\n"));
+			AssertLastTokenPosition(reader, 21, 1, 7);
+			AssertTokenIs(reader.NextToken(), VsonTokenType.LineComment, new VsonString("//"));
+			AssertLastTokenPosition(reader, 23, 2, 0);
+			AssertTokenIs(reader.NextToken(), VsonTokenType.NewLine, new VsonString("\r"));
+			AssertLastTokenPosition(reader, 25, 2, 2);
+
+			AssertIsEOF(reader.NextToken());
+		}
+
+		[Test]
+		public void SkipBlockCommentWithNewLines()
+		{
+			var reader = new VsonTextReader("/*\r\r\n\n*/5");
+			AssertTokenIs(reader.NextToken(), VsonTokenType.Number, new VsonNumber("5"));
+			AssertLastTokenPosition(reader, 8, 3, 2);
+			AssertIsEOF(reader.NextToken());
+		}
+
+		[Test]
+		public void ParseLineCommentTerminatedByEOF()
+		{
+			var reader = new VsonTextReader("5// Hello", true);
+			AssertTokenIs(reader.NextToken(), VsonTokenType.Number, new VsonNumber("5"));
+			AssertTokenIs(reader.NextToken(), VsonTokenType.LineComment, new VsonString("// Hello"));
+			AssertIsEOF(reader.NextToken());
+		}
+
+		[Test]
+		public void ParseBlockCommentsWithExtraStars()
+		{
+			var reader = new VsonTextReader("/* ***** / *//*a*****/5", true);
+			AssertTokenIs(reader.NextToken(), VsonTokenType.BlockComment, new VsonString("/* ***** / */"));
+			AssertTokenIs(reader.NextToken(), VsonTokenType.BlockComment, new VsonString("/*a*****/"));
+			AssertTokenIs(reader.NextToken(), VsonTokenType.Number, new VsonNumber("5"));
+			AssertIsEOF(reader.NextToken());
+		}
 		#endregion
 	}
 }
