@@ -44,6 +44,7 @@
   <ItemGroup>
     <Compile Include="IO\TextPosition.cs" />
     <Compile Include="IO\VsonContainerType.cs" />
+    <Compile Include="IO\VsonParseState.cs" />
     <Compile Include="IO\VsonReaderException.cs" />
     <Compile Include="Model\VsonArray.cs" />
     <Compile Include="Model\VsonBool.cs" />

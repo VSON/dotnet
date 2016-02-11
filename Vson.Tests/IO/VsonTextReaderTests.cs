@@ -7,6 +7,7 @@ namespace Vson.Tests.IO
 	[TestFixture]
 	public class VsonTextReaderTests
 	{
+		#region Special Asserts
 		private static void AssertTokenIs(VsonToken? token, VsonTokenType expectedType, VsonValue expectedValue = null)
 		{
 			Assert.IsNotNull(token, "Token");
@@ -24,14 +25,27 @@ namespace Vson.Tests.IO
 			var ex = Assert.Throws<VsonReaderException>(() => reader.NextToken());
 			Assert.AreEqual(message, ex.Message);
 		}
+		#endregion
 
+		#region Root Values
 		[Test]
 		public void ParseEmpty()
 		{
 			var reader = new VsonTextReader("");
 			AssertIsEOF(reader.NextToken());
+			AssertIsEOF(reader.NextToken()); // Reading beyond end is allowed
 		}
 
+		[Test]
+		public void MultipleRootValues()
+		{
+			var reader = new VsonTextReader("1\"hi\"");
+			AssertTokenIs(reader.NextToken(), VsonTokenType.Number, new VsonNumber("1"));
+			AssertNextTokenThrows(reader, "Unexpected start of string '\"' at char 1, line 1, column 2");
+		}
+		#endregion
+
+		#region Numbers
 		[Test]
 		[TestCase("1.1", "1.1")]
 		[TestCase("-1.1", "-1.1")]
@@ -58,7 +72,9 @@ namespace Vson.Tests.IO
 			var reader = new VsonTextReader(vson);
 			AssertNextTokenThrows(reader, $"Invalid token '{vson}' at char 0, line 1, column 1");
 		}
+		#endregion
 
+		#region Strings
 		[Test]
 		[TestCase("\"Somebody's Stuff\"", "Somebody's Stuff")]
 		[TestCase("\"A surrogate pair: \uD835\uDEE2\"", "A surrogate pair: \uD835\uDEE2")]
@@ -100,7 +116,9 @@ namespace Vson.Tests.IO
 			var reader = new VsonTextReader(vson);
 			AssertNextTokenThrows(reader, expectedMessage);
 		}
+		#endregion
 
+		#region Bools
 		[Test]
 		[TestCase("true", true)]
 		[TestCase("false", false)]
@@ -109,6 +127,7 @@ namespace Vson.Tests.IO
 			var reader = new VsonTextReader(vson);
 			AssertTokenIs(reader.NextToken(), VsonTokenType.Bool, (VsonBool)expected);
 		}
+		#endregion
 
 		[Test]
 		public void ParseNull()
@@ -117,6 +136,7 @@ namespace Vson.Tests.IO
 			AssertTokenIs(reader.NextToken(), VsonTokenType.Null, VsonNull.Value);
 		}
 
+		#region Dates and DateTimes
 		[Test]
 		[TestCase("2016-02-10", 2016, 2, 10, null)]
 		[TestCase("02016-02-10", 2016, 2, 10, null)]
@@ -217,7 +237,9 @@ namespace Vson.Tests.IO
 			var reader = new VsonTextReader(vson);
 			AssertNextTokenThrows(reader, $"Invalid token '{vson}' at char 0, line 1, column 1");
 		}
+		#endregion
 
+		#region Arrays
 		[Test]
 		public void ParseEmptyArray()
 		{
@@ -238,5 +260,92 @@ namespace Vson.Tests.IO
 			AssertTokenIs(reader.NextToken(), VsonTokenType.EndArray);
 			AssertIsEOF(reader.NextToken());
 		}
+
+		[Test]
+		public void ParseArrayReadingCommas()
+		{
+			var reader = new VsonTextReader("[1,2,3]", true);
+			AssertTokenIs(reader.NextToken(), VsonTokenType.StartArray);
+			AssertTokenIs(reader.NextToken(), VsonTokenType.Number, new VsonNumber("1"));
+			AssertTokenIs(reader.NextToken(), VsonTokenType.Comma);
+			AssertTokenIs(reader.NextToken(), VsonTokenType.Number, new VsonNumber("2"));
+			AssertTokenIs(reader.NextToken(), VsonTokenType.Comma);
+			AssertTokenIs(reader.NextToken(), VsonTokenType.Number, new VsonNumber("3"));
+			AssertTokenIs(reader.NextToken(), VsonTokenType.EndArray);
+			AssertIsEOF(reader.NextToken());
+		}
+
+		[Test]
+		public void ParseArrayWithLeadingComma()
+		{
+			var reader = new VsonTextReader("[,1]", true);
+			AssertTokenIs(reader.NextToken(), VsonTokenType.StartArray);
+			AssertNextTokenThrows(reader, "Unexpected comma ',' at char 1, line 1, column 2");
+		}
+
+		[Test]
+		public void ParseArrayWithTrailingComma()
+		{
+			var reader = new VsonTextReader("[1,]", true);
+			AssertTokenIs(reader.NextToken(), VsonTokenType.StartArray);
+			AssertTokenIs(reader.NextToken(), VsonTokenType.Number, new VsonNumber("1"));
+			AssertTokenIs(reader.NextToken(), VsonTokenType.Comma);
+			AssertNextTokenThrows(reader, "Unexpected end of array ']' at char 3, line 1, column 4");
+		}
+
+		[Test]
+		public void ParseArrayWithMissingComma()
+		{
+			var reader = new VsonTextReader("[1\"hi\"]", true);
+			AssertTokenIs(reader.NextToken(), VsonTokenType.StartArray);
+			AssertTokenIs(reader.NextToken(), VsonTokenType.Number, new VsonNumber("1"));
+			AssertNextTokenThrows(reader, "Unexpected start of string '\"' at char 2, line 1, column 3");
+		}
+
+		[Test]
+		public void ParseArrayWithMissingValue()
+		{
+			var reader = new VsonTextReader("[1,,2]", true);
+			AssertTokenIs(reader.NextToken(), VsonTokenType.StartArray);
+			AssertTokenIs(reader.NextToken(), VsonTokenType.Number, new VsonNumber("1"));
+			AssertTokenIs(reader.NextToken(), VsonTokenType.Comma);
+			AssertNextTokenThrows(reader, "Unexpected comma ',' at char 3, line 1, column 4");
+		}
+
+		[Test]
+		public void ParseArrayWithUnclosed()
+		{
+			var reader = new VsonTextReader("[1,2", true);
+			AssertTokenIs(reader.NextToken(), VsonTokenType.StartArray);
+			AssertTokenIs(reader.NextToken(), VsonTokenType.Number, new VsonNumber("1"));
+			AssertTokenIs(reader.NextToken(), VsonTokenType.Comma);
+			AssertTokenIs(reader.NextToken(), VsonTokenType.Number, new VsonNumber("2"));
+			AssertNextTokenThrows(reader, "Unexpected end of file at char 4, line 1, column 5");
+		}
+
+		[Test]
+		public void ParseArrayWithUnstarted()
+		{
+			var reader = new VsonTextReader("1,2]", true);
+			AssertTokenIs(reader.NextToken(), VsonTokenType.Number, new VsonNumber("1"));
+			AssertNextTokenThrows(reader, "Unexpected comma ',' at char 1, line 1, column 2");
+		}
+		#endregion
+
+		#region Objects
+		// TODO test object parsing
+		#endregion
+
+		#region Nesting
+		// TODO test nesting parsing (i.e. "[{}]" vs "[{]}")
+		#endregion
+
+		#region Whitespace
+		// TODO test whitespace parsing
+		#endregion
+
+		#region Comments
+		// TODO test comment parsing
+		#endregion
 	}
 }
