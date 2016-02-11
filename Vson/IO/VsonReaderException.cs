@@ -32,11 +32,6 @@ namespace Vson.IO
 			Position = position;
 		}
 
-		private static string BuildMessage(TextPosition position, string message)
-		{
-			return $"{message} at char {position.Offset}, line {position.Line + 1}, column {position.Column + 1}";
-		}
-
 		#region Factory Methods
 		internal static VsonReaderException UnexpectedEndOfFile(TextPosition position)
 		{

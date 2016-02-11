@@ -21,7 +21,7 @@ namespace Vson
 			return Deserialize(new VsonTextReader(reader));
 		}
 
-		public VsonValue Deserialize(VsonReader reader)
+		public VsonValue Deserialize(VsonTextReader reader)
 		{
 			var value = DeserializeValue(reader);
 
@@ -33,12 +33,12 @@ namespace Vson
 			} while(token != null && token.Value.IsWhiteSpace);
 
 			if(token != null)
-				throw new VsonSerializationException($"Unexpected token {token.Value}");
+				throw new VsonSerializationException(reader.LastTokenPosition, $"Unexpected token {token.Value}");
 
 			return value;
 		}
 
-		private static VsonValue DeserializeValue(VsonReader reader)
+		private static VsonValue DeserializeValue(VsonTextReader reader)
 		{
 			for(;;)
 			{
@@ -59,12 +59,12 @@ namespace Vson
 					case VsonTokenType.StartObject:
 						return DeserializeObject(reader);
 					default:
-						throw new VsonSerializationException($"Unexpected token {token.Value}");
+						throw new VsonSerializationException(reader.LastTokenPosition, $"Unexpected token {token.Value}");
 				}
 			}
 		}
 
-		private static VsonValue DeserializeArray(VsonReader reader)
+		private static VsonValue DeserializeArray(VsonTextReader reader)
 		{
 			var array = new VsonArray();
 			for(;;)
@@ -95,7 +95,7 @@ namespace Vson
 			}
 		}
 
-		private static VsonValue DeserializeObject(VsonReader reader)
+		private static VsonValue DeserializeObject(VsonTextReader reader)
 		{
 			var obj = new VsonObject();
 			string propertyName = null;
@@ -125,9 +125,11 @@ namespace Vson
 					case VsonTokenType.EndObject:
 						return obj;
 					default:
-						throw new VsonSerializationException($"Unexpected token {token.Value}");
+						throw new VsonSerializationException(reader.LastTokenPosition, $"Unexpected token {token.Value}");
 				}
 			}
 		}
+
+
 	}
 }

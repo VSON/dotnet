@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Runtime.Serialization;
+using Vson.IO;
 
 namespace Vson
 {
@@ -12,6 +13,11 @@ namespace Vson
 
 		public VsonSerializationException(string message)
 			: base(message)
+		{
+		}
+
+		public VsonSerializationException(TextPosition position, string message)
+			: base(BuildMessage(position, message))
 		{
 		}
 

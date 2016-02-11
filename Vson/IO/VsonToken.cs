@@ -27,5 +27,13 @@ namespace Vson.IO
 									Type == VsonTokenType.Colon;
 
 		public bool IsComment => Type == VsonTokenType.BlockComment || Type == VsonTokenType.LineComment;
+
+		public override string ToString()
+		{
+			if(Value == null)
+				return Type.ToString();
+
+			return $"{Type} '{Value}'";
+		}
 	}
 }
