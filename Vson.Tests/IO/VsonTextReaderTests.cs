@@ -49,14 +49,14 @@ namespace Vson.Tests.IO
 		}
 
 		[Test]
-		[TestCase("9999999999999999999999999999999999999999999999999999999999999999999999999999asdasdasd", "Invalid token '9999999999999999999999999999999999999999999999999999999999999999999999999999asdasdasd' at char 0, line 1, column 1")]
-		[TestCase("0123", "Invalid token '0123' at char 0, line 1, column 1")]
-		[TestCase(".23", "Invalid token '.23' at char 0, line 1, column 1")]
-		[TestCase("-.23", "Invalid token '-.23' at char 0, line 1, column 1")]
-		public void ParseNumbersInvalid(string vson, string expectedMessage)
+		[TestCase("9999999999999999999999999999999999999999999999999999999999999999999999999999asdasdasd")]
+		[TestCase("0123")]
+		[TestCase(".23")]
+		[TestCase("-.23")]
+		public void ParseNumbersInvalid(string vson)
 		{
 			var reader = new VsonTextReader(vson);
-			AssertNextTokenThrows(reader, expectedMessage);
+			AssertNextTokenThrows(reader, $"Invalid token '{vson}' at char 0, line 1, column 1");
 		}
 
 		[Test]
