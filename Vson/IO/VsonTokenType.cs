@@ -7,7 +7,7 @@
 		Number,
 		Date,
 		DateTime,
-		StartObject = 1,
+		StartObject,
 		PropertyName,
 		EndObject,
 		StartArray,
@@ -19,5 +19,6 @@
 		BlockComment,
 		NewLine,
 		Comma,
+		Colon,
 	}
 }

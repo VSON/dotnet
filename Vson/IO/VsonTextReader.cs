@@ -129,10 +129,6 @@ namespace Vson.IO
 							return comment;
 
 						continue;
-					case '{':
-						return LexStartObject();
-					case '}':
-						return LexEndObject();
 					case '[':
 						return LexStartArray();
 					case ']':
@@ -141,6 +137,16 @@ namespace Vson.IO
 						var comma = LexComma();
 						if(readWhiteSpace)
 							return comma;
+
+						continue;
+					case '{':
+						return LexStartObject();
+					case '}':
+						return LexEndObject();
+					case ':':
+						var colon = LexColon();
+						if(readWhiteSpace)
+							return colon;
 
 						continue;
 					case '"':
@@ -321,34 +327,6 @@ namespace Vson.IO
 			}
 		}
 
-		private VsonToken LexStartObject()
-		{
-			if(!state.AllowsValue())
-				throw new VsonReaderException(currentPosition, "Unexpected start of object '{'");
-
-			reader.Read();
-			currentPosition = currentPosition.Advance();
-
-			StartContainer(VsonContainerType.Object);
-			return new VsonToken(VsonTokenType.StartObject);
-		}
-
-		private VsonToken LexEndObject()
-		{
-			if(!state.AllowsEndObject())
-				throw new VsonReaderException(currentPosition, "Unexpected end of object '}'");
-
-			var container = EndContainer();
-			if(container != VsonContainerType.Array)
-				throw new VsonReaderException(currentPosition, "End of object '}' does not match a corresponding start of object");
-
-			reader.Read();
-			currentPosition = currentPosition.Advance();
-
-			state = state.TransitionOnValue();
-			return new VsonToken(VsonTokenType.EndObject);
-		}
-
 		private VsonToken LexStartArray()
 		{
 			if(!state.AllowsValue())
@@ -379,14 +357,54 @@ namespace Vson.IO
 
 		private VsonToken LexComma()
 		{
-			if(state != VsonParseState.ArrayRest)
+			if(!state.AllowsComma())
 				throw new VsonReaderException(currentPosition, "Unexpected comma ','");
 
 			reader.Read();
 			currentPosition = CurrentPosition.Advance();
 
-			state = VsonParseState.ArrayValue;
+			state = state.TransitionOnComma();
 			return new VsonToken(VsonTokenType.Comma);
+		}
+
+		private VsonToken LexStartObject()
+		{
+			if(!state.AllowsValue())
+				throw new VsonReaderException(currentPosition, "Unexpected start of object '{'");
+
+			reader.Read();
+			currentPosition = currentPosition.Advance();
+
+			StartContainer(VsonContainerType.Object);
+			return new VsonToken(VsonTokenType.StartObject);
+		}
+
+		private VsonToken LexEndObject()
+		{
+			if(!state.AllowsEndObject())
+				throw new VsonReaderException(currentPosition, "Unexpected end of object '}'");
+
+			var container = EndContainer();
+			if(container != VsonContainerType.Object)
+				throw new VsonReaderException(currentPosition, "End of object '}' does not match a corresponding start of object");
+
+			reader.Read();
+			currentPosition = currentPosition.Advance();
+
+			state = state.TransitionOnValue();
+			return new VsonToken(VsonTokenType.EndObject);
+		}
+
+		private VsonToken LexColon()
+		{
+			if(state != VsonParseState.ObjectColon)
+				throw new VsonReaderException(currentPosition, "Unexpected colon ':'");
+
+			reader.Read();
+			currentPosition = CurrentPosition.Advance();
+
+			state = VsonParseState.ObjectValue;
+			return new VsonToken(VsonTokenType.Colon);
 		}
 
 		private VsonToken LexString()
@@ -408,8 +426,9 @@ namespace Vson.IO
 					case '"':
 						reader.Read();
 						currentPosition = currentPosition.Advance(offset + 1);
+						var tokenType = state.PropertyNameExpected() ? VsonTokenType.PropertyName : VsonTokenType.String;
 						state = state.TransitionOnString();
-						return new VsonToken(VsonTokenType.String, new VsonString(Debuffer()));
+						return new VsonToken(tokenType, new VsonString(Debuffer()));
 					case '\\':
 						reader.Read();
 						next = reader.Peek();
@@ -640,7 +659,7 @@ namespace Vson.IO
 			if(KeywordTokens.TryGetValue(token, out keywordToken))
 			{
 				if(!state.AllowsValue())
-					throw new VsonReaderException(currentPosition, $"Unexpected value '{token}'");
+					throw new VsonReaderException(lastTokenPosition, $"Unexpected value '{token}'");
 
 				state = state.TransitionOnValue();
 				return keywordToken;
@@ -777,7 +796,7 @@ namespace Vson.IO
 				throw VsonReaderException.InvalidToken(lastTokenPosition, token);
 
 			if(!state.AllowsValue())
-				throw new VsonReaderException(currentPosition, $"Unexpected date/time '{token}'");
+				throw new VsonReaderException(lastTokenPosition, $"Unexpected date/time '{token}'");
 
 			state = state.TransitionOnValue();
 
@@ -841,7 +860,7 @@ namespace Vson.IO
 				throw VsonReaderException.InvalidToken(lastTokenPosition, token);
 
 			if(!state.AllowsValue())
-				throw new VsonReaderException(currentPosition, $"Unexpected number '{token}'");
+				throw new VsonReaderException(lastTokenPosition, $"Unexpected number '{token}'");
 
 			state = state.TransitionOnValue();
 

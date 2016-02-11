@@ -11,7 +11,7 @@ namespace Vson.IO
 		ArrayRest,
 		ArrayValue,
 		ObjectFirst,
-		ObjectProperty,
+		ObjectPropertyName,
 		ObjectColon,
 		ObjectValue,
 		ObjectRest
@@ -56,8 +56,14 @@ namespace Vson.IO
 				|| state == VsonParseState.ArrayFirst
 				|| state == VsonParseState.ArrayValue
 				|| state == VsonParseState.ObjectFirst
-				|| state == VsonParseState.ObjectProperty
+				|| state == VsonParseState.ObjectPropertyName
 				|| state == VsonParseState.ObjectValue;
+		}
+
+		public static bool PropertyNameExpected(this VsonParseState state)
+		{
+			return state == VsonParseState.ObjectFirst
+				|| state == VsonParseState.ObjectPropertyName;
 		}
 
 		public static VsonParseState TransitionOnString(this VsonParseState state)
@@ -70,7 +76,7 @@ namespace Vson.IO
 				case VsonParseState.ArrayValue:
 					return VsonParseState.ArrayRest;
 				case VsonParseState.ObjectFirst:
-				case VsonParseState.ObjectProperty:
+				case VsonParseState.ObjectPropertyName:
 					return VsonParseState.ObjectColon;
 				case VsonParseState.ObjectValue:
 					return VsonParseState.ObjectRest;
@@ -89,6 +95,25 @@ namespace Vson.IO
 		{
 			return state == VsonParseState.ObjectFirst
 				|| state == VsonParseState.ObjectRest;
+		}
+
+		public static bool AllowsComma(this VsonParseState state)
+		{
+			return state == VsonParseState.ArrayRest
+				|| state == VsonParseState.ObjectRest;
+		}
+
+		public static VsonParseState TransitionOnComma(this VsonParseState state)
+		{
+			switch(state)
+			{
+				case VsonParseState.ArrayRest:
+					return VsonParseState.ArrayValue;
+				case VsonParseState.ObjectRest:
+					return VsonParseState.ObjectPropertyName;
+				default:
+					throw new NotSupportedException($"Can't TransitionOnComma from state '{state}'");
+			}
 		}
 	}
 }

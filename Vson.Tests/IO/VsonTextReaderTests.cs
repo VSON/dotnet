@@ -333,7 +333,133 @@ namespace Vson.Tests.IO
 		#endregion
 
 		#region Objects
-		// TODO test object parsing
+		[Test]
+		public void ParseEmptyObject()
+		{
+			var reader = new VsonTextReader("{}");
+			AssertTokenIs(reader.NextToken(), VsonTokenType.StartObject);
+			AssertTokenIs(reader.NextToken(), VsonTokenType.EndObject);
+			AssertIsEOF(reader.NextToken());
+		}
+
+		[Test]
+		public void ParseObject()
+		{
+			var reader = new VsonTextReader("{\"a\":1,\"b\":\"hi\",\"c\":true,\"d\":2015-06-23}");
+			AssertTokenIs(reader.NextToken(), VsonTokenType.StartObject);
+			AssertTokenIs(reader.NextToken(), VsonTokenType.PropertyName, new VsonString("a"));
+			AssertTokenIs(reader.NextToken(), VsonTokenType.Number, new VsonNumber("1"));
+			AssertTokenIs(reader.NextToken(), VsonTokenType.PropertyName, new VsonString("b"));
+			AssertTokenIs(reader.NextToken(), VsonTokenType.String, new VsonString("hi"));
+			AssertTokenIs(reader.NextToken(), VsonTokenType.PropertyName, new VsonString("c"));
+			AssertTokenIs(reader.NextToken(), VsonTokenType.Bool, VsonBool.True);
+			AssertTokenIs(reader.NextToken(), VsonTokenType.PropertyName, new VsonString("d"));
+			AssertTokenIs(reader.NextToken(), VsonTokenType.Date, new VsonDate(2015, 6, 23, null));
+			AssertTokenIs(reader.NextToken(), VsonTokenType.EndObject);
+			AssertIsEOF(reader.NextToken());
+		}
+
+		[Test]
+		public void ParseObjectReadingCommasAndColons()
+		{
+			var reader = new VsonTextReader("{\"a\":1,\"b\":\"hi\",\"c\":true,\"d\":2015-06-23}", true);
+			AssertTokenIs(reader.NextToken(), VsonTokenType.StartObject);
+			AssertTokenIs(reader.NextToken(), VsonTokenType.PropertyName, new VsonString("a"));
+			AssertTokenIs(reader.NextToken(), VsonTokenType.Colon);
+			AssertTokenIs(reader.NextToken(), VsonTokenType.Number, new VsonNumber("1"));
+			AssertTokenIs(reader.NextToken(), VsonTokenType.Comma);
+			AssertTokenIs(reader.NextToken(), VsonTokenType.PropertyName, new VsonString("b"));
+			AssertTokenIs(reader.NextToken(), VsonTokenType.Colon);
+			AssertTokenIs(reader.NextToken(), VsonTokenType.String, new VsonString("hi"));
+			AssertTokenIs(reader.NextToken(), VsonTokenType.Comma);
+			AssertTokenIs(reader.NextToken(), VsonTokenType.PropertyName, new VsonString("c"));
+			AssertTokenIs(reader.NextToken(), VsonTokenType.Colon);
+			AssertTokenIs(reader.NextToken(), VsonTokenType.Bool, VsonBool.True);
+			AssertTokenIs(reader.NextToken(), VsonTokenType.Comma);
+			AssertTokenIs(reader.NextToken(), VsonTokenType.PropertyName, new VsonString("d"));
+			AssertTokenIs(reader.NextToken(), VsonTokenType.Colon);
+			AssertTokenIs(reader.NextToken(), VsonTokenType.Date, new VsonDate(2015, 6, 23, null));
+			AssertTokenIs(reader.NextToken(), VsonTokenType.EndObject);
+			AssertIsEOF(reader.NextToken());
+		}
+
+		[Test]
+		public void ParseObjectWithLeadingComma()
+		{
+			var reader = new VsonTextReader("{,\"a\":1}", true);
+			AssertTokenIs(reader.NextToken(), VsonTokenType.StartObject);
+			AssertNextTokenThrows(reader, "Unexpected comma ',' at char 1, line 1, column 2");
+		}
+
+		[Test]
+		public void ParseObjectWithLeadingColon()
+		{
+			var reader = new VsonTextReader("{:\"a\":1}", true);
+			AssertTokenIs(reader.NextToken(), VsonTokenType.StartObject);
+			AssertNextTokenThrows(reader, "Unexpected colon ':' at char 1, line 1, column 2");
+		}
+
+		[Test]
+		public void ParseObjectWithTrailingComma()
+		{
+			var reader = new VsonTextReader("{\"a\":1,}", true);
+			AssertTokenIs(reader.NextToken(), VsonTokenType.StartObject);
+			AssertTokenIs(reader.NextToken(), VsonTokenType.PropertyName, new VsonString("a"));
+			AssertTokenIs(reader.NextToken(), VsonTokenType.Colon);
+			AssertTokenIs(reader.NextToken(), VsonTokenType.Number, new VsonNumber("1"));
+			AssertTokenIs(reader.NextToken(), VsonTokenType.Comma);
+			AssertNextTokenThrows(reader, "Unexpected end of object '}' at char 7, line 1, column 8");
+		}
+
+		[Test]
+		public void ParseObjectWithTrailingColon()
+		{
+			var reader = new VsonTextReader("{\"a\":1:}", true);
+			AssertTokenIs(reader.NextToken(), VsonTokenType.StartObject);
+			AssertTokenIs(reader.NextToken(), VsonTokenType.PropertyName, new VsonString("a"));
+			AssertTokenIs(reader.NextToken(), VsonTokenType.Colon);
+			AssertNextTokenThrows(reader, "Invalid token '1:' at char 5, line 1, column 6");
+		}
+
+		[Test]
+		public void ParseObjectWithMissingComma()
+		{
+			var reader = new VsonTextReader("{\"a\":1\"b\":2}", true);
+			AssertTokenIs(reader.NextToken(), VsonTokenType.StartObject);
+			AssertTokenIs(reader.NextToken(), VsonTokenType.PropertyName, new VsonString("a"));
+			AssertTokenIs(reader.NextToken(), VsonTokenType.Colon);
+			AssertTokenIs(reader.NextToken(), VsonTokenType.Number, new VsonNumber("1"));
+			AssertNextTokenThrows(reader, "Unexpected start of string '\"' at char 6, line 1, column 7");
+		}
+
+		[Test]
+		public void ParseObjectWithMissingColon()
+		{
+			var reader = new VsonTextReader("{\"a\"1}", true);
+			AssertTokenIs(reader.NextToken(), VsonTokenType.StartObject);
+			AssertTokenIs(reader.NextToken(), VsonTokenType.PropertyName, new VsonString("a"));
+			AssertNextTokenThrows(reader, "Unexpected number '1' at char 4, line 1, column 5");
+		}
+
+		[Test]
+		public void ParseObjectWithUnclosed()
+		{
+			var reader = new VsonTextReader("{\"a\":1,\"b\":2");
+			AssertTokenIs(reader.NextToken(), VsonTokenType.StartObject);
+			AssertTokenIs(reader.NextToken(), VsonTokenType.PropertyName, new VsonString("a"));
+			AssertTokenIs(reader.NextToken(), VsonTokenType.Number, new VsonNumber("1"));
+			AssertTokenIs(reader.NextToken(), VsonTokenType.PropertyName, new VsonString("b"));
+			AssertTokenIs(reader.NextToken(), VsonTokenType.Number, new VsonNumber("2"));
+			AssertNextTokenThrows(reader, "Unexpected end of file at char 12, line 1, column 13");
+		}
+
+		[Test]
+		public void ParseObjectWithUnstarted()
+		{
+			var reader = new VsonTextReader("\"a\":1}");
+			AssertTokenIs(reader.NextToken(), VsonTokenType.String, new VsonString("a"));
+			AssertNextTokenThrows(reader, "Unexpected colon ':' at char 3, line 1, column 4");
+		}
 		#endregion
 
 		#region Nesting
