@@ -16,7 +16,7 @@ namespace Vson.IO
 
 		private static readonly VsonToken LineFeedToken = new VsonToken(VsonTokenType.NewLine, new VsonString("\n"));
 		private static readonly VsonToken CarriageReturnToken = new VsonToken(VsonTokenType.NewLine, new VsonString("\r"));
-		private static readonly VsonToken CarriageReturnLineFeedToken = new VsonToken(VsonTokenType.NewLine, new VsonString("\r"));
+		private static readonly VsonToken CarriageReturnLineFeedToken = new VsonToken(VsonTokenType.NewLine, new VsonString("\r\n"));
 		private static IDictionary<string, VsonToken> keywordTokens;
 
 		private static IDictionary<string, VsonToken> KeywordTokens => keywordTokens ?? (keywordTokens = new SortedDictionary<string, VsonToken>()

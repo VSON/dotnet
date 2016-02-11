@@ -25,6 +25,14 @@ namespace Vson.Tests.IO
 			var ex = Assert.Throws<VsonReaderException>(() => reader.NextToken());
 			Assert.AreEqual(message, ex.Message);
 		}
+
+		private static void AssertLastTokenPosition(VsonTextReader reader, long offset, int line, int col)
+		{
+			var pos = reader.LastTokenPosition;
+			Assert.AreEqual(offset, pos.Offset, "Offset");
+			Assert.AreEqual(line, pos.Line, "Line");
+			Assert.AreEqual(col, pos.Column, "Column");
+		}
 		#endregion
 
 		#region Root Values
@@ -463,7 +471,6 @@ namespace Vson.Tests.IO
 		#endregion
 
 		#region Nesting
-		// TODO test nesting parsing (i.e. "[{}]" vs "[{]}")
 		[Test]
 		public void ParseEmptyObjectInArray()
 		{
@@ -529,8 +536,128 @@ namespace Vson.Tests.IO
 		}
 		#endregion
 
-		#region Whitespace
-		// TODO test whitespace parsing
+		#region WhiteSpace
+		[Test]
+		public void SkipWhiteSpaceAroundRoot()
+		{
+			var reader = new VsonTextReader(" \r\t\r\n  \n5 \r\t\r\n  \n");
+			AssertTokenIs(reader.NextToken(), VsonTokenType.Number, new VsonNumber("5"));
+			AssertLastTokenPosition(reader, 8, 3, 0);
+			AssertIsEOF(reader.NextToken());
+		}
+
+		[Test]
+		public void ParseWhiteSpaceAroundRoot()
+		{
+			var reader = new VsonTextReader(" \r\t\r\n  \n5 \r\t\r\n  \n", true);
+			AssertTokenIs(reader.NextToken(), VsonTokenType.WhiteSpace, new VsonString(" "));
+			AssertLastTokenPosition(reader, 0, 0, 0);
+			AssertTokenIs(reader.NextToken(), VsonTokenType.NewLine, new VsonString("\r"));
+			AssertLastTokenPosition(reader, 1, 0, 1);
+			AssertTokenIs(reader.NextToken(), VsonTokenType.WhiteSpace, new VsonString("\t"));
+			AssertLastTokenPosition(reader, 2, 1, 0);
+			AssertTokenIs(reader.NextToken(), VsonTokenType.NewLine, new VsonString("\r\n"));
+			AssertLastTokenPosition(reader, 3, 1, 1);
+			AssertTokenIs(reader.NextToken(), VsonTokenType.WhiteSpace, new VsonString("  "));
+			AssertLastTokenPosition(reader, 5, 2, 0);
+			AssertTokenIs(reader.NextToken(), VsonTokenType.NewLine, new VsonString("\n"));
+			AssertLastTokenPosition(reader, 7, 2, 2);
+
+			AssertTokenIs(reader.NextToken(), VsonTokenType.Number, new VsonNumber("5"));
+			AssertLastTokenPosition(reader, 8, 3, 0);
+
+			AssertTokenIs(reader.NextToken(), VsonTokenType.WhiteSpace, new VsonString(" "));
+			AssertLastTokenPosition(reader, 9, 3, 1);
+			AssertTokenIs(reader.NextToken(), VsonTokenType.NewLine, new VsonString("\r"));
+			AssertLastTokenPosition(reader, 10, 3, 2);
+			AssertTokenIs(reader.NextToken(), VsonTokenType.WhiteSpace, new VsonString("\t"));
+			AssertLastTokenPosition(reader, 11, 4, 0);
+			AssertTokenIs(reader.NextToken(), VsonTokenType.NewLine, new VsonString("\r\n"));
+			AssertLastTokenPosition(reader, 12, 4, 1);
+			AssertTokenIs(reader.NextToken(), VsonTokenType.WhiteSpace, new VsonString("  "));
+			AssertLastTokenPosition(reader, 14, 5, 0);
+			AssertTokenIs(reader.NextToken(), VsonTokenType.NewLine, new VsonString("\n"));
+			AssertLastTokenPosition(reader, 16, 5, 2);
+
+			AssertIsEOF(reader.NextToken());
+		}
+
+		[Test]
+		public void SkipWhiteSpaceInArray()
+		{
+			var reader = new VsonTextReader("[ 1 , 2\t,\t3 ]");
+			AssertTokenIs(reader.NextToken(), VsonTokenType.StartArray);
+			AssertTokenIs(reader.NextToken(), VsonTokenType.Number, new VsonNumber("1"));
+			AssertTokenIs(reader.NextToken(), VsonTokenType.Number, new VsonNumber("2"));
+			AssertTokenIs(reader.NextToken(), VsonTokenType.Number, new VsonNumber("3"));
+			AssertTokenIs(reader.NextToken(), VsonTokenType.EndArray);
+			AssertIsEOF(reader.NextToken());
+		}
+
+		[Test]
+		public void ParseWhiteSpaceInArray()
+		{
+			var reader = new VsonTextReader("[ 1 , 2\t,\t3 ]", true);
+			AssertTokenIs(reader.NextToken(), VsonTokenType.StartArray);
+			AssertTokenIs(reader.NextToken(), VsonTokenType.WhiteSpace, new VsonString(" "));
+			AssertTokenIs(reader.NextToken(), VsonTokenType.Number, new VsonNumber("1"));
+			AssertTokenIs(reader.NextToken(), VsonTokenType.WhiteSpace, new VsonString(" "));
+			AssertTokenIs(reader.NextToken(), VsonTokenType.Comma);
+			AssertTokenIs(reader.NextToken(), VsonTokenType.WhiteSpace, new VsonString(" "));
+			AssertTokenIs(reader.NextToken(), VsonTokenType.Number, new VsonNumber("2"));
+			AssertTokenIs(reader.NextToken(), VsonTokenType.WhiteSpace, new VsonString("\t"));
+			AssertTokenIs(reader.NextToken(), VsonTokenType.Comma);
+			AssertTokenIs(reader.NextToken(), VsonTokenType.WhiteSpace, new VsonString("\t"));
+			AssertTokenIs(reader.NextToken(), VsonTokenType.Number, new VsonNumber("3"));
+			AssertTokenIs(reader.NextToken(), VsonTokenType.WhiteSpace, new VsonString(" "));
+			AssertTokenIs(reader.NextToken(), VsonTokenType.EndArray);
+			AssertIsEOF(reader.NextToken());
+		}
+
+		[Test]
+		public void SkipWhiteSpaceInObject()
+		{
+			var reader = new VsonTextReader("{ \"a\" : 1 , \"b\"\t:\t\"hi\"\t,\t\"c\":true }");
+			AssertTokenIs(reader.NextToken(), VsonTokenType.StartObject);
+			AssertTokenIs(reader.NextToken(), VsonTokenType.PropertyName, new VsonString("a"));
+			AssertTokenIs(reader.NextToken(), VsonTokenType.Number, new VsonNumber("1"));
+			AssertTokenIs(reader.NextToken(), VsonTokenType.PropertyName, new VsonString("b"));
+			AssertTokenIs(reader.NextToken(), VsonTokenType.String, new VsonString("hi"));
+			AssertTokenIs(reader.NextToken(), VsonTokenType.PropertyName, new VsonString("c"));
+			AssertTokenIs(reader.NextToken(), VsonTokenType.Bool, VsonBool.True);
+			AssertTokenIs(reader.NextToken(), VsonTokenType.EndObject);
+			AssertIsEOF(reader.NextToken());
+		}
+
+		[Test]
+		public void ParseWhiteSpaceInObject()
+		{
+			var reader = new VsonTextReader("{ \"a\" : 1 , \"b\"\t:\t\"hi\"\t,\t\"c\":true }", true);
+			AssertTokenIs(reader.NextToken(), VsonTokenType.StartObject);
+			AssertTokenIs(reader.NextToken(), VsonTokenType.WhiteSpace, new VsonString(" "));
+			AssertTokenIs(reader.NextToken(), VsonTokenType.PropertyName, new VsonString("a"));
+			AssertTokenIs(reader.NextToken(), VsonTokenType.WhiteSpace, new VsonString(" "));
+			AssertTokenIs(reader.NextToken(), VsonTokenType.Colon);
+			AssertTokenIs(reader.NextToken(), VsonTokenType.WhiteSpace, new VsonString(" "));
+			AssertTokenIs(reader.NextToken(), VsonTokenType.Number, new VsonNumber("1"));
+			AssertTokenIs(reader.NextToken(), VsonTokenType.WhiteSpace, new VsonString(" "));
+			AssertTokenIs(reader.NextToken(), VsonTokenType.Comma);
+			AssertTokenIs(reader.NextToken(), VsonTokenType.WhiteSpace, new VsonString(" "));
+			AssertTokenIs(reader.NextToken(), VsonTokenType.PropertyName, new VsonString("b"));
+			AssertTokenIs(reader.NextToken(), VsonTokenType.WhiteSpace, new VsonString("\t"));
+			AssertTokenIs(reader.NextToken(), VsonTokenType.Colon);
+			AssertTokenIs(reader.NextToken(), VsonTokenType.WhiteSpace, new VsonString("\t"));
+			AssertTokenIs(reader.NextToken(), VsonTokenType.String, new VsonString("hi"));
+			AssertTokenIs(reader.NextToken(), VsonTokenType.WhiteSpace, new VsonString("\t"));
+			AssertTokenIs(reader.NextToken(), VsonTokenType.Comma);
+			AssertTokenIs(reader.NextToken(), VsonTokenType.WhiteSpace, new VsonString("\t"));
+			AssertTokenIs(reader.NextToken(), VsonTokenType.PropertyName, new VsonString("c"));
+			AssertTokenIs(reader.NextToken(), VsonTokenType.Colon);
+			AssertTokenIs(reader.NextToken(), VsonTokenType.Bool, VsonBool.True);
+			AssertTokenIs(reader.NextToken(), VsonTokenType.WhiteSpace, new VsonString(" "));
+			AssertTokenIs(reader.NextToken(), VsonTokenType.EndObject);
+			AssertIsEOF(reader.NextToken());
+		}
 		#endregion
 
 		#region Comments
