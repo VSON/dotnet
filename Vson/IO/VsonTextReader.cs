@@ -479,7 +479,7 @@ namespace Vson.IO
 					case '"':
 					case '{':
 					case '}':
-					case '/':
+					case '/': // Would be nice if we could peek beyond this, but can't
 					case ' ':
 					case '\t':
 					case '\n':
@@ -586,7 +586,7 @@ namespace Vson.IO
 				|| pos + 2 >= token.Length
 				|| !byte.TryParse(token.Substring(pos + 1, 2), out day)
 				|| day < 1
-				|| day > VsonDate.DaysInMonth(year, day))
+				|| day > VsonDate.DaysInMonth(year, month))
 				throw VsonReaderException.InvalidToken(lastTokenPosition, token);
 
 			pos += 3;

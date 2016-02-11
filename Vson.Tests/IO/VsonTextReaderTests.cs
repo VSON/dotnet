@@ -113,6 +113,8 @@ namespace Vson.Tests.IO
 
 		[Test]
 		[TestCase("2016-02-10", 2016, 2, 10, null)]
+		[TestCase("02016-02-10", 2016, 2, 10, null)]
+		[TestCase("+2016-02-10", 2016, 2, 10, null)]
 		[TestCase("987518-01-01", 987518, 1, 1, null)]
 		[TestCase("0000-12-10", 0, 12, 10, null)]
 		[TestCase("-0001-01-01", -1, 1, 1, null)]
@@ -127,7 +129,52 @@ namespace Vson.Tests.IO
 			AssertTokenIs(reader.NextToken(), VsonTokenType.Date, new VsonDate(year, month, day, (short?)offset));
 		}
 
-		// TODO ParseDatesInvalid
+		[Test]
+		[TestCase("100-01-01")]
+		[TestCase("-100-01-01")]
+		[TestCase("2016-00-01")]
+		[TestCase("2016-13-01")]
+		[TestCase("2016-01-32")]
+		[TestCase("2016-02-30")]
+		[TestCase("2016-03-32")]
+		[TestCase("2016-04-31")]
+		[TestCase("2016-05-32")]
+		[TestCase("2016-06-31")]
+		[TestCase("2016-07-32")]
+		[TestCase("2016-08-32")]
+		[TestCase("2016-09-31")]
+		[TestCase("2016-10-32")]
+		[TestCase("2016-11-31")]
+		[TestCase("2016-12-32")]
+		[TestCase("2015-02-29")]
+		[TestCase("2016-01-01z")]
+		[TestCase("2016-01-01-5")]
+		[TestCase("2016-01-01-0530")]
+		[TestCase("2016-01-01-25")]
+		[TestCase("2016-01-01+01:60")]
+		[TestCase("2016-01-01+24:01")]
+		public void ParseDatesInvalid(string vson)
+		{
+			var reader = new VsonTextReader(vson);
+			AssertNextTokenThrows(reader, $"Invalid token '{vson}' at char 0, line 1, column 1");
+		}
+
+		[Test]
+		[TestCase("2016-01/01", "Invalid token '2016-01' at char 0, line 1, column 1")]
+		[TestCase("01/01/2016", "Invalid token '01' at char 0, line 1, column 1")]
+		public void ParseDatesInvalidWithMessage(string vson, string expectedMessage)
+		{
+			var reader = new VsonTextReader(vson);
+			AssertNextTokenThrows(reader, expectedMessage);
+		}
+
+		[Test]
+		public void ParseDateInvalidWithMultipleTokens()
+		{
+			var reader = new VsonTextReader("2016/01-01");
+			AssertTokenIs(reader.NextToken(), VsonTokenType.Number, new VsonNumber("2016"));
+			AssertNextTokenThrows(reader, "Unexpected character '0' encountered at char 5, line 1, column 6");
+		}
 
 		[Test]
 		[TestCase("2016-02-10T00:00", 2016, 2, 10, 0, 0, 0, "", null)]
