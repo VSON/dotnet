@@ -192,7 +192,25 @@ namespace Vson.Tests.IO
 			AssertTokenIs(reader.NextToken(), VsonTokenType.DateTime, new VsonDateTime(year, month, day, hours, min, sec, frac, (short?)offset));
 		}
 
-		// TODO ParseDateTimesInvalid
+		[Test]
+		[TestCase("2016-01-01t12:30")]
+		[TestCase("2016-01-01T1230")]
+		[TestCase("2016-01-01T12")]
+		[TestCase("2016-01-01T12.30")]
+		[TestCase("2016-01-01T12:30.10")]
+		[TestCase("2016-01-01T24:01")]
+		[TestCase("2016-01-01T24:00:01")]
+		[TestCase("2016-01-01T24:00:00.000000000000001")]
+		[TestCase("2016-01-01T25:00")]
+		[TestCase("2016-01-01T01:60")]
+		[TestCase("2016-01-01T01:01:60")]
+		[TestCase("2016-01-01T01:01:01.545544c4541")]
+		[TestCase("2016-01-01T01:01:01:41543215")]
+		public void ParseDatesTimesInvalid(string vson)
+		{
+			var reader = new VsonTextReader(vson);
+			AssertNextTokenThrows(reader, $"Invalid token '{vson}' at char 0, line 1, column 1");
+		}
 
 		[Test]
 		public void ParseEmptyArray()

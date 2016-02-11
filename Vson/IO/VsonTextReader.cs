@@ -605,9 +605,10 @@ namespace Vson.IO
 					throw VsonReaderException.InvalidToken(lastTokenPosition, token);
 				pos += 2;
 				if(pos + 3 > token.Length
-				   || !byte.TryParse(token.Substring(pos + 1, 2), out min)
-				   || min > 59
-				   || (hours == 24 && min != 0))
+					|| token[pos] != ':'
+					|| !byte.TryParse(token.Substring(pos + 1, 2), out min)
+					|| min > 59
+					|| (hours == 24 && min != 0))
 					throw VsonReaderException.InvalidToken(lastTokenPosition, token);
 				pos += 3;
 				if(pos < token.Length && token[pos] == ':')
