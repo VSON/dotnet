@@ -62,6 +62,9 @@
     <Compile Include="IO\VsonToken.cs" />
     <Compile Include="IO\VsonTokenType.cs" />
     <Compile Include="IO\VsonWriter.cs" />
+    <Compile Include="VsonException.cs" />
+    <Compile Include="VsonSerializationException.cs" />
+    <Compile Include="VsonSerializer.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

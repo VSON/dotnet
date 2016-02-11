@@ -22,7 +22,9 @@ namespace Vson.IO
 		public bool IsWhiteSpace => Type == VsonTokenType.BlockComment ||
 									Type == VsonTokenType.LineComment ||
 									Type == VsonTokenType.WhiteSpace ||
-									Type == VsonTokenType.NewLine;
+									Type == VsonTokenType.NewLine ||
+									Type == VsonTokenType.Comma ||
+									Type == VsonTokenType.Colon;
 
 		public bool IsComment => Type == VsonTokenType.BlockComment || Type == VsonTokenType.LineComment;
 	}

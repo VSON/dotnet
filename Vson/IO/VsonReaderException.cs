@@ -4,7 +4,7 @@ using System.Runtime.Serialization;
 namespace Vson.IO
 {
 	[Serializable]
-	public class VsonReaderException : Exception
+	public class VsonReaderException : VsonException
 	{
 		public TextPosition Position { get; }
 
