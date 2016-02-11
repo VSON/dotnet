@@ -45,6 +45,9 @@ namespace Vson.IO
 
 		internal static VsonReaderException UnexpectedCharacter(TextPosition position, char character)
 		{
+			if(char.IsControl(character))
+				return new VsonReaderException(position, $"Unexpected character \\u{(int)character:X4} encountered");
+
 			return new VsonReaderException(position, $"Unexpected character '{character}' encountered");
 		}
 

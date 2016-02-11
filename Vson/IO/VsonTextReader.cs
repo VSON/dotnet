@@ -376,6 +376,11 @@ namespace Vson.IO
 						}
 						break;
 					default:
+						if(next <= 0x1F) // control characters
+						{
+							currentPosition = currentPosition.Advance(offset);
+							throw VsonReaderException.UnexpectedCharacter(currentPosition, (char)reader.Read());
+						}
 						offset++;
 						buffer.Append((char)reader.Read());
 						break;

@@ -74,6 +74,9 @@ namespace Vson.Tests.IO
 		[TestCase("\"\\u2f6A\"", "\u2f6A")]
 		[TestCase("\"\\u{b}\"", "\u000b")]
 		[TestCase("\"\\u{10FFFF}\"", "\U0010FFFF")]
+		[TestCase("\"\u0085\"", "\u0085")] // Unicode next line
+		[TestCase("\"\u2028\"", "\u2028")] // Unicode line separator
+		[TestCase("\"\u2029\"", "\u2029")] // Unicode paragraph separator
 		public void ParseStrings(string vson, string expected)
 		{
 			var reader = new VsonTextReader(vson);
@@ -89,6 +92,9 @@ namespace Vson.Tests.IO
 		[TestCase("\"\\P\"", "Unexpected character 'P' encountered at char 2, line 1, column 3")]
 		[TestCase("\"\\uW\"", "Unexpected character 'W' encountered at char 3, line 1, column 4")]
 		[TestCase("\"\\u{W}\"", "Unexpected character 'W' encountered at char 4, line 1, column 5")]
+		[TestCase("\"\x00\"", "Unexpected character \\u0000 encountered at char 1, line 1, column 2")]
+		[TestCase("\"\x0F\"", "Unexpected character \\u000F encountered at char 1, line 1, column 2")]
+		[TestCase("\"\x1F\"", "Unexpected character \\u001F encountered at char 1, line 1, column 2")]
 		public void ParseStringsInvalid(string vson, string expectedMessage)
 		{
 			var reader = new VsonTextReader(vson);
